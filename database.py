@@ -25,7 +25,11 @@ async def init_db():
     """Initializes the database schema if not already present."""
     if _mongo_db is not None:
         try:
-            await _mongo_db.user_links.create_index("discord_user_id", unique=True)
+            indexes = await _mongo_db.user_links.index_information()
+            if "discord_user_id_1" in indexes and not indexes["discord_user_id_1"].get("sparse", False):
+                await _mongo_db.user_links.drop_index("discord_user_id_1")
+            await _mongo_db.user_links.create_index("discord_user_id", unique=True, sparse=True)
+            await _mongo_db.user_links.create_index("epic_username_lower", unique=True)
             await _mongo_db.guild_settings.create_index("guild_id", unique=True)
             await _mongo_db.bot_state.create_index("key", unique=True)
             logger.info("MongoDB collections & indexes initialized.")
@@ -36,9 +40,10 @@ async def init_db():
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_links (
-                discord_user_id INTEGER PRIMARY KEY,
+                discord_user_id INTEGER,
                 epic_username TEXT NOT NULL COLLATE NOCASE,
-                linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (epic_username)
             )
         """)
         await db.execute("""
@@ -56,25 +61,73 @@ async def init_db():
         """)
         await db.commit()
 
-async def link_user(discord_id: int, epic_username: str):
-    """Links or updates a Discord user's Epic Games username."""
+async def track_player(epic_username: str, discord_user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Tracks a player in the persistent database."""
+    clean_name = epic_username.strip()
+    lower_name = clean_name.lower()
+    now = datetime.utcnow()
+
     if _mongo_db is not None:
+        update_data: Dict[str, Any] = {
+            "epic_username": clean_name,
+            "epic_username_lower": lower_name,
+            "updated_at": now
+        }
+        if discord_user_id:
+            update_data["discord_user_id"] = int(discord_user_id)
         await _mongo_db.user_links.update_one(
-            {"discord_user_id": discord_id},
-            {"$set": {"epic_username": epic_username, "linked_at": datetime.utcnow()}},
+            {"epic_username_lower": lower_name},
+            {"$set": update_data, "$setOnInsert": {"linked_at": now}},
             upsert=True
         )
-        return
+        return {"epic_username": clean_name, "discord_user_id": discord_user_id}
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("""
             INSERT INTO user_links (discord_user_id, epic_username, linked_at)
             VALUES (?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(discord_user_id) DO UPDATE SET
-                epic_username = excluded.epic_username,
-                linked_at = CURRENT_TIMESTAMP
-        """, (discord_id, epic_username))
+            ON CONFLICT(epic_username) DO UPDATE SET
+                discord_user_id = COALESCE(excluded.discord_user_id, user_links.discord_user_id)
+        """, (discord_user_id, clean_name))
         await db.commit()
+        return {"epic_username": clean_name, "discord_user_id": discord_user_id}
+
+async def link_user(discord_id: int, epic_username: str):
+    """Links or updates a Discord user's Epic Games username."""
+    await track_player(epic_username, discord_user_id=discord_id)
+
+async def untrack_player(identifier: Any) -> bool:
+    """Removes a player by Epic username or Discord ID."""
+    str_id = str(identifier).strip()
+    if _mongo_db is not None:
+        if str_id.isdigit():
+            res = await _mongo_db.user_links.delete_one({
+                "$or": [
+                    {"discord_user_id": int(str_id)},
+                    {"epic_username_lower": str_id.lower()}
+                ]
+            })
+        else:
+            res = await _mongo_db.user_links.delete_one({"epic_username_lower": str_id.lower()})
+        return res.deleted_count > 0
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        if str_id.isdigit():
+            cursor = await db.execute(
+                "DELETE FROM user_links WHERE discord_user_id = ? OR epic_username = ?",
+                (int(str_id), str_id)
+            )
+        else:
+            cursor = await db.execute(
+                "DELETE FROM user_links WHERE epic_username = ?",
+                (str_id,)
+            )
+        await db.commit()
+        return cursor.rowcount > 0
+
+async def unlink_user(discord_id: int) -> bool:
+    """Removes a Discord user's link. Returns True if a record was removed."""
+    return await untrack_player(discord_id)
 
 async def get_linked_user(discord_id: int) -> Optional[str]:
     """Gets the linked Epic username for a Discord user ID."""
@@ -89,20 +142,6 @@ async def get_linked_user(discord_id: int) -> Optional[str]:
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else None
-
-async def unlink_user(discord_id: int) -> bool:
-    """Removes a Discord user's link. Returns True if a record was removed."""
-    if _mongo_db is not None:
-        res = await _mongo_db.user_links.delete_one({"discord_user_id": discord_id})
-        return res.deleted_count > 0
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        cursor = await db.execute(
-            "DELETE FROM user_links WHERE discord_user_id = ?",
-            (discord_id,)
-        )
-        await db.commit()
-        return cursor.rowcount > 0
 
 async def get_user_last_wins(discord_id: int) -> Optional[int]:
     """Gets cached win count for a linked user."""
@@ -342,4 +381,69 @@ async def get_all_linked_users_list() -> List[Dict[str, Any]]:
         async with db.execute("SELECT discord_user_id, epic_username, linked_at FROM user_links") as cursor:
             rows = await cursor.fetchall()
             return [{"discord_user_id": r[0], "epic_username": r[1], "linked_at": str(r[2])} for r in rows]
+
+async def export_all_data() -> Dict[str, Any]:
+    """Exports all database collections into a portable JSON-safe dictionary."""
+    data: Dict[str, Any] = {
+        "exported_at": datetime.utcnow().isoformat(),
+        "user_links": [],
+        "guild_settings": [],
+        "bot_settings": {},
+        "bot_state": {}
+    }
+
+    if _mongo_db is not None:
+        async for doc in _mongo_db.user_links.find({}):
+            doc.pop("_id", None)
+            if "linked_at" in doc and isinstance(doc["linked_at"], datetime):
+                doc["linked_at"] = doc["linked_at"].isoformat()
+            if "updated_at" in doc and isinstance(doc["updated_at"], datetime):
+                doc["updated_at"] = doc["updated_at"].isoformat()
+            data["user_links"].append(doc)
+
+        async for doc in _mongo_db.guild_settings.find({}):
+            doc.pop("_id", None)
+            if "updated_at" in doc and isinstance(doc["updated_at"], datetime):
+                doc["updated_at"] = doc["updated_at"].isoformat()
+            data["guild_settings"].append(doc)
+
+        doc_cfg = await _mongo_db.bot_settings.find_one({"key": "global_config"})
+        if doc_cfg:
+            doc_cfg.pop("_id", None)
+            doc_cfg.pop("key", None)
+            data["bot_settings"] = doc_cfg
+        else:
+            data["bot_settings"] = DEFAULT_CONFIG.copy()
+
+        async for doc in _mongo_db.bot_state.find({}):
+            doc.pop("_id", None)
+            k = doc.get("key")
+            v = doc.get("value")
+            if k:
+                data["bot_state"][k] = v
+
+        return data
+
+    # SQLite fallback
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT discord_user_id, epic_username, linked_at FROM user_links") as cur:
+            for r in await cur.fetchall():
+                data["user_links"].append({
+                    "discord_user_id": r[0],
+                    "epic_username": r[1],
+                    "linked_at": str(r[2])
+                })
+        async with db.execute("SELECT guild_id, shop_channel_id, updated_at FROM guild_settings") as cur:
+            for r in await cur.fetchall():
+                data["guild_settings"].append({
+                    "guild_id": r[0],
+                    "shop_channel_id": r[1],
+                    "updated_at": str(r[2])
+                })
+        data["bot_settings"] = await get_global_config()
+        async with db.execute("SELECT key, value FROM bot_state") as cur:
+            for r in await cur.fetchall():
+                data["bot_state"][r[0]] = r[1]
+
+    return data
 

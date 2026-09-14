@@ -38,6 +38,20 @@ async def test_database():
     val = await get_bot_state("test_key")
     assert val == "test_value"
 
+    # Test squad tracking and export
+    from database import track_player, untrack_player, export_all_data, get_all_linked_users_list
+    await track_player("KING_CONDOR_")
+    await track_player("p_lmpNastie")
+    users = await get_all_linked_users_list()
+    usernames = [u["epic_username"].lower() for u in users]
+    assert "king_condor_" in usernames, "KING_CONDOR_ not found in user list"
+    assert "p_lmpnastie" in usernames, "p_lmpNastie not found in user list"
+
+    exported = await export_all_data()
+    assert "user_links" in exported
+    assert len(exported["user_links"]) >= 2
+    print("  -> Squad tracking & JSON export PASSED!")
+
     # Test unlink
     await unlink_user(123456789)
     linked_after = await get_linked_user(123456789)
@@ -55,6 +69,20 @@ async def test_fortnite_client():
         embed_stats = build_stats_embed(stats)
         assert embed_stats.title is not None
         print("    -> Stats & Embed OK!")
+
+        # 1b. Squad Players: KING_CONDOR_ and p_lmpNastie
+        print("  - Fetching KING_CONDOR_ stats...")
+        kc_stats = await client.get_player_stats("KING_CONDOR_")
+        assert kc_stats.get("account", {}).get("name") == "KING_CONDOR_"
+        print(f"    -> KING_CONDOR_ OK! Level: {kc_stats.get('battlePass', {}).get('level')}, Wins: {kc_stats.get('stats', {}).get('all', {}).get('overall', {}).get('wins')}")
+
+        print("  - Testing p_lmpNastie private status detection...")
+        try:
+            await client.get_player_stats("p_lmpNastie")
+            print("    -> p_lmpNastie public")
+        except Exception as pe:
+            assert "private" in str(pe).lower()
+            print(f"    -> p_lmpNastie privacy notice OK: {pe}")
 
         # 2. Shop
         print("  - Fetching live Item Shop...")

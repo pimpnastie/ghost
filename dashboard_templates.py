@@ -376,12 +376,24 @@ def get_dashboard_html() -> str:
     <section id="tab-squad" class="tab-content active">
       <div class="card">
         <div class="card-title">
-          <span>👥 Squad Detailed Breakdown (5-10 Members)</span>
+          <span>👥 Squad Telemetry & Live Tracker (5-10 Members)</span>
           <button class="btn btn-secondary" onclick="loadSquadStats()">🔄 Refresh Stats</button>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
-          Comprehensive telemetry for all linked squad members. Victory Royales are automatically monitored.
+          Track your squad members directly from this dashboard. Stats update live from Epic Games.
         </p>
+
+        <!-- Track Player & Filter Bar -->
+        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <div style="flex: 2; min-width: 240px;">
+            <input type="text" id="trackPlayerInput" placeholder="Enter Epic Games username (e.g. KING_CONDOR_, p_lmpNastie)" onkeydown="if(event.key==='Enter') trackPlayer()">
+          </div>
+          <button class="btn btn-primary" id="trackBtn" onclick="trackPlayer()">➕ Track Player</button>
+          <div style="flex: 1; min-width: 180px;">
+            <input type="text" id="filterSquadInput" placeholder="🔍 Filter squad cards..." oninput="filterSquadCards()">
+          </div>
+        </div>
+
         <div id="squadContainer" class="squad-grid">
           <p style="color: var(--text-muted);">Loading squad telemetry from Fortnite API...</p>
         </div>
@@ -513,6 +525,19 @@ def get_dashboard_html() -> str:
         </div>
         <button class="btn btn-primary" onclick="savePresence()">💾 Update Status Live</button>
       </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>💾 Database Persistence & Backup</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          Your tracked squad members and configurations are permanently saved in MongoDB Atlas 24/7. Click below to download a standalone JSON backup file anytime.
+        </p>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button class="btn btn-secondary" onclick="window.open('/api/backup/export', '_blank')">📥 Download DB Backup (.json)</button>
+          <span style="font-size: 0.8rem; color: var(--success); font-weight: 600;">✓ Cloud Sync Active</span>
+        </div>
+      </div>
     </section>
 
   </main>
@@ -552,39 +577,134 @@ def get_dashboard_html() -> str:
       localStorage.setItem('ghost_pin', document.getElementById('adminPin').value);
     }
 
+    async function trackPlayer() {
+      const input = document.getElementById('trackPlayerInput');
+      const name = input.value.trim();
+      if (!name) return;
+      const btn = document.getElementById('trackBtn');
+      const oldText = btn.innerText;
+      btn.innerText = '⏳ Checking...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/players/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epic_name: name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(data.message || 'Player tracked successfully! 🎯');
+          input.value = '';
+          await loadSquadStats();
+        } else {
+          showToast('⚠️ ' + (data.message || 'Could not track player'));
+        }
+      } catch (err) {
+        showToast('Error: ' + err);
+      } finally {
+        btn.innerText = oldText;
+        btn.disabled = false;
+      }
+    }
+
+    async function untrackPlayer(name) {
+      if (!confirm(`Stop tracking squad member '${name}'?`)) return;
+      try {
+        const res = await fetch('/api/players/untrack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epic_name: name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Untracked ${name}`);
+          await loadSquadStats();
+        } else {
+          showToast('Error: ' + data.message);
+        }
+      } catch (err) {
+        showToast('Error: ' + err);
+      }
+    }
+
+    function filterSquadCards() {
+      const q = (document.getElementById('filterSquadInput').value || '').toLowerCase();
+      document.querySelectorAll('.player-card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+
     async function loadSquadStats() {
       const container = document.getElementById('squadContainer');
       container.innerHTML = '<p style="color: var(--text-muted);">Fetching detailed squad telemetry...</p>';
       try {
         const res = await fetch('/api/squad-stats');
         const squad = await res.json();
-        if (squad.length === 0) {
-          container.innerHTML = '<div style="grid-column: 1/-1; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p>No squad members linked yet! Type <code>/link &lt;epic_username&gt;</code> in Discord to link.</p></div>';
+        if (!Array.isArray(squad) || squad.length === 0) {
+          container.innerHTML = '<div style="grid-column: 1/-1; padding: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p style="font-size: 1.1rem; margin-bottom: 8px;">No squad members tracked yet!</p><p style="color: var(--text-muted);">Enter an Epic Games username above to start tracking stats.</p></div>';
           return;
         }
 
+        // Determine MVP (highest total wins)
+        let maxWins = -1;
+        let mvpPlayer = null;
+        squad.forEach(p => {
+          if (!p.error && p.overall && (p.overall.wins || 0) > maxWins) {
+            maxWins = p.overall.wins;
+            mvpPlayer = p.epic_name;
+          }
+        });
+
         container.innerHTML = squad.map(p => {
+          const trackerUrl = `https://fortnitetracker.com/profile/all/${encodeURIComponent(p.epic_name)}`;
+          const isMvp = (p.epic_name === mvpPlayer && maxWins > 0);
+
           if (p.error) {
             return `
-              <div class="player-card" style="border-color: rgba(239, 68, 68, 0.3);">
+              <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7);">
                 <div class="player-header">
-                  <div class="player-name">${p.epic_name}</div>
-                  <span style="color: var(--error); font-size: 0.75rem;">Account Private</span>
+                  <div class="player-name">
+                    <span>🎮 ${p.epic_name}</span>
+                  </div>
+                  <span style="background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                    🔒 Stats Private
+                  </span>
                 </div>
-                <p style="font-size: 0.8rem; color: var(--text-muted);">${p.error}</p>
+
+                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #fde68a;">
+                  <strong>To make your stats visible:</strong><br>
+                  1. Launch Fortnite on your console / PC.<br>
+                  2. Open <strong>Settings ➔ Account and Privacy</strong>.<br>
+                  3. Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.<br>
+                  4. Click <em>Re-Check</em> below.
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
+                  <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
+                    📊 FortniteTracker ↗
+                  </a>
+                  <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats()">🔄 Re-Check</button>
+                    <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">🗑️</button>
+                  </div>
+                </div>
               </div>
             `;
           }
+
           const o = p.overall || {};
           return `
-            <div class="player-card">
+            <div class="player-card" style="${isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : ''}">
               <div class="player-header">
                 <div class="player-name">
-                  🏆 ${p.epic_name}
+                  <span>🏆 ${p.epic_name}</span>
                   ${p.has_controller ? '<span title="Controller Player" style="font-size: 0.9rem;">🎮</span>' : ''}
                   ${p.has_kbm ? '<span title="Keyboard & Mouse Player" style="font-size: 0.9rem;">⌨️</span>' : ''}
+                  ${isMvp ? '<span title="Highest Wins in Squad" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); border: 1px solid rgba(255, 215, 0, 0.4); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👑 MVP</span>' : ''}
                 </div>
-                <span class="player-bp">BP Level ${p.bp_level}</span>
+                <span class="player-bp">BP Lvl ${p.bp_level}</span>
               </div>
 
               <div class="stats-matrix">
@@ -627,6 +747,15 @@ def get_dashboard_html() -> str:
                   <span>🛡️ <strong>Squad</strong></span>
                   <span>${p.squad?.wins || 0} Wins • ${(p.squad?.kd || 0).toFixed(2)} K/D</span>
                 </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+                <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
+                  📊 FortniteTracker ↗
+                </a>
+                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">
+                  🗑️ Untrack
+                </button>
               </div>
             </div>
           `;

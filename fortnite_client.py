@@ -42,7 +42,10 @@ class FortniteClient:
                     err_msg = data.get("error", "Resource not found.") if isinstance(data, dict) else "Not found."
                     raise FortniteAPIError(f"Not found: {err_msg}", status_code=404)
                 elif resp.status == 403:
-                    raise FortniteAPIError("Access denied. Check your Fortnite API key.", status_code=403)
+                    err_msg = data.get("error", "") if isinstance(data, dict) else ""
+                    if "not public" in err_msg.lower() or "private" in err_msg.lower():
+                        raise FortniteAPIError("Account stats are Private. In Fortnite, go to Settings -> Account and Privacy -> turn on 'Show on Career Leaderboard'.", status_code=403)
+                    raise FortniteAPIError(f"Access denied: {err_msg or 'Check your Fortnite API key.'}", status_code=403)
                 elif resp.status == 429:
                     raise FortniteAPIError("Fortnite API rate limit reached. Please wait a moment.", status_code=429)
                 else:

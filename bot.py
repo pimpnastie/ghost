@@ -35,6 +35,9 @@ from database import (
     get_global_config,
     save_global_config,
     get_all_linked_users_list,
+    track_player,
+    untrack_player,
+    export_all_data,
 )
 from dashboard_templates import get_dashboard_html
 from fortnite_client import FortniteClient, FortniteAPIError
@@ -72,6 +75,16 @@ class FortniteBot(commands.Bot):
     async def setup_hook(self):
         logger.info("Initializing database...")
         await init_db()
+
+        # Seed initial squad members if empty
+        try:
+            existing = await get_all_linked_users_list()
+            if not existing:
+                await track_player("KING_CONDOR_")
+                await track_player("p_lmpNastie")
+                logger.info("Initialized default squad tracking for KING_CONDOR_ and p_lmpNastie")
+        except Exception as e:
+            logger.warning(f"Error seeding default squad players: {e}")
 
         # Load and apply initial saved configuration
         initial_cfg = await get_global_config()
@@ -204,13 +217,16 @@ class FortniteBot(commands.Bot):
                             "duo": duo,
                             "squad": squad,
                             "has_controller": bool(gamepad.get("matches", 0) > 0),
-                            "has_kbm": bool(kbm.get("matches", 0) > 0)
+                            "has_kbm": bool(kbm.get("matches", 0) > 0),
+                            "is_private": False
                         })
                     except Exception as err:
+                        is_priv = "private" in str(err).lower()
                         results.append({
                             "discord_id": did,
                             "epic_name": ename,
-                            "error": str(err)
+                            "error": str(err),
+                            "is_private": is_priv
                         })
                 return web.json_response(results)
 
@@ -260,12 +276,63 @@ class FortniteBot(commands.Bot):
                 players = await get_all_linked_users_list()
                 return web.json_response(players)
 
+            async def api_players_track(request):
+                try:
+                    data = await request.json()
+                    epic_name = str(data.get("epic_name", "")).strip()
+                    if not epic_name:
+                        return web.json_response({"status": "error", "message": "Missing epic_name"}, status=400)
+
+                    is_private = False
+                    try:
+                        await self.fortnite.get_player_stats(name=epic_name)
+                    except FortniteAPIError as fe:
+                        if fe.status_code == 403:
+                            is_private = True
+                        elif fe.status_code == 404:
+                            return web.json_response({"status": "error", "message": f"Player '{epic_name}' not found on Epic Games."}, status=404)
+                        else:
+                            return web.json_response({"status": "error", "message": str(fe)}, status=400)
+
+                    await track_player(epic_name)
+                    logger.info(f"Tracked squad player: {epic_name} (private={is_private})")
+                    return web.json_response({
+                        "status": "success",
+                        "epic_name": epic_name,
+                        "is_private": is_private,
+                        "message": "Player added to squad tracking!" if not is_private else "Player tracked! Note: stats are set to Private in Fortnite settings."
+                    })
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_players_untrack(request):
+                try:
+                    data = await request.json()
+                    target = data.get("epic_name") or data.get("discord_id") or data.get("identifier")
+                    if not target:
+                        return web.json_response({"status": "error", "message": "Missing player identifier"}, status=400)
+                    removed = await untrack_player(target)
+                    logger.info(f"Untracked player: {target} (removed={removed})")
+                    return web.json_response({"status": "success", "removed": removed})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
             async def api_players_unlink(request):
                 data = await request.json()
-                did = int(data.get("discord_id", 0))
-                if did:
-                    await unlink_user(did)
+                target = data.get("discord_id") or data.get("epic_name")
+                if target:
+                    await untrack_player(target)
                 return web.json_response({"status": "success"})
+
+            async def api_backup_export(request):
+                try:
+                    backup_data = await export_all_data()
+                    return web.json_response(
+                        backup_data,
+                        headers={"Content-Disposition": 'attachment; filename="ghost_squad_backup.json"'}
+                    )
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
 
             app.router.add_get("/", index)
             app.router.add_get("/health", health)
@@ -277,11 +344,14 @@ class FortniteBot(commands.Bot):
             app.router.add_get("/api/guilds-channels", api_guilds_channels)
             app.router.add_post("/api/guild-settings", api_guild_settings_post)
             app.router.add_get("/api/players", api_players_get)
+            app.router.add_post("/api/players/track", api_players_track)
+            app.router.add_post("/api/players/untrack", api_players_untrack)
             app.router.add_post("/api/players/unlink", api_players_unlink)
             app.router.add_get("/api/squad-stats", api_squad_stats)
             app.router.add_get("/api/live-shop", api_live_shop)
             app.router.add_get("/api/live-map", api_live_map)
             app.router.add_get("/api/live-news", api_live_news)
+            app.router.add_get("/api/backup/export", api_backup_export)
 
             self._web_runner = web.AppRunner(app)
             await self._web_runner.setup()
