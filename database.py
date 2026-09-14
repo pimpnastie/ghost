@@ -104,6 +104,29 @@ async def unlink_user(discord_id: int) -> bool:
         await db.commit()
         return cursor.rowcount > 0
 
+async def get_user_last_wins(discord_id: int) -> Optional[int]:
+    """Gets cached win count for a linked user."""
+    if _mongo_db is not None:
+        doc = await _mongo_db.user_links.find_one({"discord_user_id": discord_id})
+        return doc.get("last_wins") if doc else None
+
+    # SQLite fallback: use bot_state
+    raw = await get_bot_state(f"user_wins_{discord_id}")
+    return int(raw) if raw is not None else None
+
+async def set_user_last_wins(discord_id: int, wins: int):
+    """Updates cached win count for a linked user."""
+    if _mongo_db is not None:
+        await _mongo_db.user_links.update_one(
+            {"discord_user_id": discord_id},
+            {"$set": {"last_wins": wins}},
+            upsert=True
+        )
+        return
+
+    # SQLite fallback
+    await set_bot_state(f"user_wins_{discord_id}", str(wins))
+
 async def get_linked_users_for_members(discord_ids: List[int]) -> Dict[int, str]:
     """Returns a mapping of discord_id -> epic_username for the given member IDs."""
     if not discord_ids:

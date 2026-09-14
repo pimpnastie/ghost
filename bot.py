@@ -30,6 +30,8 @@ from database import (
     save_guild_settings,
     get_bot_state,
     set_bot_state,
+    get_user_last_wins,
+    set_user_last_wins,
     get_global_config,
     save_global_config,
     get_all_linked_users_list,
@@ -169,6 +171,91 @@ class FortniteBot(commands.Bot):
                 except Exception as e:
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
 
+            async def api_squad_stats(request):
+                players = await get_all_linked_users_list()
+                results = []
+                for p in players:
+                    ename = p.get("epic_username")
+                    did = p.get("discord_user_id")
+                    try:
+                        stats = await self.fortnite.get_player_stats(name=ename, time_window="lifetime")
+                        bp = stats.get("battlePass", {}).get("level", 1)
+                        all_stats = stats.get("stats", {}).get("all", {})
+                        overall = all_stats.get("overall", {})
+                        solo = all_stats.get("solo", {})
+                        duo = all_stats.get("duo", {})
+                        squad = all_stats.get("squad", {})
+                        gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
+                        kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
+                        results.append({
+                            "discord_id": did,
+                            "epic_name": ename,
+                            "bp_level": bp,
+                            "overall": {
+                                "wins": overall.get("wins", 0),
+                                "kills": overall.get("kills", 0),
+                                "kd": overall.get("kd", 0.0),
+                                "winRate": overall.get("winRate", 0.0),
+                                "matches": overall.get("matches", 0),
+                                "top3": overall.get("top3", 0),
+                                "top10": overall.get("top10", 0)
+                            },
+                            "solo": solo,
+                            "duo": duo,
+                            "squad": squad,
+                            "has_controller": bool(gamepad.get("matches", 0) > 0),
+                            "has_kbm": bool(kbm.get("matches", 0) > 0)
+                        })
+                    except Exception as err:
+                        results.append({
+                            "discord_id": did,
+                            "epic_name": ename,
+                            "error": str(err)
+                        })
+                return web.json_response(results)
+
+            async def api_live_shop(request):
+                try:
+                    shop_data = await self.fortnite.get_shop()
+                    entries = shop_data.get("entries", [])
+                    parsed_items = []
+                    for e in entries:
+                        br = e.get("brItems") or []
+                        name = br[0].get("name", e.get("devName", "Item")) if br else e.get("devName", "Item")
+                        rarity = br[0].get("rarity", {}).get("displayValue", "Common") if br else "Common"
+                        imgs = br[0].get("images", {}) if br else {}
+                        icon = imgs.get("icon") or imgs.get("featured") or imgs.get("smallIcon")
+                        cat = e.get("layout", {}).get("category", "Featured") if isinstance(e.get("layout"), dict) else "Featured"
+                        parsed_items.append({
+                            "name": name,
+                            "price": e.get("finalPrice", 0),
+                            "regularPrice": e.get("regularPrice", 0),
+                            "rarity": rarity,
+                            "icon": icon,
+                            "category": cat or "Shop"
+                        })
+                    return web.json_response({
+                        "date": shop_data.get("date", ""),
+                        "hash": shop_data.get("hash", ""),
+                        "items": parsed_items
+                    })
+                except Exception as e:
+                    return web.json_response({"error": str(e)}, status=500)
+
+            async def api_live_map(request):
+                try:
+                    map_data = await self.fortnite.get_map()
+                    return web.json_response(map_data)
+                except Exception as e:
+                    return web.json_response({"error": str(e)}, status=500)
+
+            async def api_live_news(request):
+                try:
+                    news_data = await self.fortnite.get_news()
+                    return web.json_response(news_data)
+                except Exception as e:
+                    return web.json_response({"error": str(e)}, status=500)
+
             async def api_players_get(request):
                 players = await get_all_linked_users_list()
                 return web.json_response(players)
@@ -191,6 +278,10 @@ class FortniteBot(commands.Bot):
             app.router.add_post("/api/guild-settings", api_guild_settings_post)
             app.router.add_get("/api/players", api_players_get)
             app.router.add_post("/api/players/unlink", api_players_unlink)
+            app.router.add_get("/api/squad-stats", api_squad_stats)
+            app.router.add_get("/api/live-shop", api_live_shop)
+            app.router.add_get("/api/live-map", api_live_map)
+            app.router.add_get("/api/live-news", api_live_news)
 
             self._web_runner = web.AppRunner(app)
             await self._web_runner.setup()
@@ -205,6 +296,9 @@ class FortniteBot(commands.Bot):
 
         logger.info("Starting news monitoring background task...")
         self.check_news_loop.start()
+
+        logger.info("Starting victory royale win monitoring task...")
+        self.check_wins_loop.start()
 
         logger.info("Starting keep-alive background task...")
         self.keep_alive_loop.start()
@@ -301,6 +395,7 @@ class FortniteBot(commands.Bot):
         self.keep_alive_loop.cancel()
         self.check_shop_loop.cancel()
         self.check_news_loop.cancel()
+        self.check_wins_loop.cancel()
         await self.fortnite.close()
         await super().close()
 
@@ -331,6 +426,57 @@ class FortniteBot(commands.Bot):
 
     @check_news_loop.before_loop
     async def before_check_news_loop(self):
+        await self.wait_until_ready()
+
+    @tasks.loop(minutes=10)
+    async def check_wins_loop(self):
+        """Monitors linked squad members and announces new Victory Royales in Discord."""
+        try:
+            players = await get_all_linked_users_list()
+            for p in players:
+                did = p.get("discord_user_id")
+                epic_name = p.get("epic_username")
+                if not did or not epic_name:
+                    continue
+
+                try:
+                    stats = await self.fortnite.get_player_stats(name=epic_name, time_window="lifetime")
+                    current_wins = stats.get("stats", {}).get("all", {}).get("overall", {}).get("wins", 0)
+                    last_wins = await get_user_last_wins(did)
+
+                    if last_wins is None:
+                        await set_user_last_wins(did, current_wins)
+                        continue
+
+                    if current_wins > last_wins:
+                        diff = current_wins - last_wins
+                        await set_user_last_wins(did, current_wins)
+
+                        embed = discord.Embed(
+                            title="👑 SQUAD VICTORY ROYALE!",
+                            description=(
+                                f"🎉 **{epic_name}** (<@{did}>) just secured a Victory Royale in Fortnite!\n\n"
+                                f"🏆 Total Wins: **{current_wins:,}** (+{diff})\n"
+                                f"🎯 K/D: **{stats.get('stats', {}).get('all', {}).get('overall', {}).get('kd', 0.0):.2f}**"
+                            ),
+                            color=0xFFD700
+                        )
+                        embed.set_footer(text="Squad Victory Announcer • Ghost")
+
+                        for guild in self.guilds:
+                            member = guild.get_member(did)
+                            if member:
+                                ch = await self.get_or_detect_shop_channel(guild)
+                                if ch and ch.permissions_for(guild.me).send_messages:
+                                    await ch.send(embed=embed)
+                                    logger.info(f"Announced win for {epic_name} in {guild.name}")
+                except Exception as err:
+                    logger.debug(f"Win check note for {epic_name}: {err}")
+        except Exception as e:
+            logger.error(f"Error in check_wins_loop: {e}")
+
+    @check_wins_loop.before_loop
+    async def before_check_wins_loop(self):
         await self.wait_until_ready()
 
     @tasks.loop(minutes=10)
@@ -785,6 +931,32 @@ async def news_cmd(interaction: discord.Interaction):
         await interaction.followup.send(embeds=embeds)
     except Exception as e:
         embed = discord.Embed(title="❌ Error", description=f"Could not load news: {e}", color=COLOR_ERROR)
+        await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="season", description="View Fortnite Battle Royale season info, timeline, and countdown")
+async def season_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    try:
+        news_data = await bot.fortnite.get_news()
+        motds = news_data.get("motds", [])
+        banner = motds[0].get("image") if motds else None
+
+        embed = discord.Embed(
+            title="⏳ Fortnite Season Timeline & Info",
+            description="Live Battle Royale season status and countdown details.",
+            color=COLOR_FORTNITE
+        )
+        embed.add_field(name="🎮 Island", value="Active Season", inline=True)
+        embed.add_field(name="⚡ Battle Pass", value="Active In-Game", inline=True)
+        embed.add_field(name="🕒 Shop Reset", value="Daily at `00:00 UTC`", inline=True)
+
+        if banner:
+            embed.set_image(url=banner)
+        embed.set_footer(text="Squad Season Tracker • /season")
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        embed = discord.Embed(title="❌ Error", description=f"Could not load season data: {e}", color=COLOR_ERROR)
         await interaction.followup.send(embed=embed)
 
 
