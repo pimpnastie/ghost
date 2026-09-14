@@ -222,16 +222,16 @@ def get_dashboard_html() -> str:
       text-align: center;
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
     }
-    .shop-item-card:hover { transform: scale(1.03); }
+    .shop-item-card:hover { transform: translateY(-3px); }
     .shop-img {
       width: 110px;
       height: 110px;
       object-fit: contain;
       margin-bottom: 8px;
     }
-    .shop-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 6px; }
+    .shop-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 6px; line-height: 1.3; }
     .shop-price {
       display: inline-flex;
       align-items: center;
@@ -243,6 +243,97 @@ def get_dashboard_html() -> str:
       font-size: 0.8rem;
       font-weight: 800;
       font-family: 'JetBrains Mono', monospace;
+      margin-top: auto;
+    }
+
+    /* Shop Filter Pills */
+    .filter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .filter-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-pill:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+    .filter-pill.active {
+      background: rgba(0, 168, 255, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Rarity Glows */
+    .rarity-legendary { border-color: rgba(245, 158, 11, 0.7) !important; box-shadow: 0 0 16px rgba(245, 158, 11, 0.18); }
+    .rarity-epic { border-color: rgba(168, 85, 247, 0.7) !important; box-shadow: 0 0 16px rgba(168, 85, 247, 0.18); }
+    .rarity-rare { border-color: rgba(59, 130, 246, 0.7) !important; box-shadow: 0 0 16px rgba(59, 130, 246, 0.18); }
+    .rarity-uncommon { border-color: rgba(34, 197, 94, 0.7) !important; box-shadow: 0 0 16px rgba(34, 197, 94, 0.18); }
+    .rarity-common { border-color: rgba(148, 163, 184, 0.4) !important; }
+    .rarity-iconseries { border-color: rgba(6, 182, 212, 0.8) !important; box-shadow: 0 0 18px rgba(6, 182, 212, 0.25); }
+    .rarity-gaminglegends { border-color: rgba(147, 51, 234, 0.8) !important; box-shadow: 0 0 18px rgba(147, 51, 234, 0.25); }
+    .rarity-marvelseries { border-color: rgba(239, 68, 68, 0.8) !important; box-shadow: 0 0 18px rgba(239, 68, 68, 0.25); }
+    .rarity-dc { border-color: rgba(37, 99, 235, 0.8) !important; box-shadow: 0 0 18px rgba(37, 99, 235, 0.25); }
+    .rarity-starwars { border-color: rgba(234, 179, 8, 0.8) !important; box-shadow: 0 0 18px rgba(234, 179, 8, 0.25); }
+
+    .item-type-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.65);
+      color: var(--text-muted);
+      backdrop-filter: blur(4px);
+    }
+
+    /* Map & Drop Roulette */
+    .roulette-box {
+      background: linear-gradient(135deg, rgba(0, 168, 255, 0.1), rgba(147, 51, 234, 0.1));
+      border: 1px solid rgba(0, 168, 255, 0.3);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      text-align: center;
+      width: 100%;
+    }
+    .drop-target-display {
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--accent);
+      text-shadow: 0 0 20px var(--accent-glow);
+      letter-spacing: 0.5px;
+      padding: 12px 24px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(0, 168, 255, 0.4);
+      border-radius: 12px;
+      min-width: 280px;
+    }
+    .custom-poi-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(147, 51, 234, 0.15);
+      border: 1px solid rgba(147, 51, 234, 0.4);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
     }
 
     /* News Cards */
@@ -412,29 +503,114 @@ def get_dashboard_html() -> str:
     <section id="tab-shop" class="tab-content">
       <div class="card">
         <div class="card-title">
-          <span>🛒 Today's Fortnite Item Shop (Live Grid)</span>
-          <button class="btn btn-secondary" onclick="loadLiveShop()">🔄 Refresh Shop</button>
+          <span>🛒 Today's Fortnite Item Shop (Live & Organized)</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="loadLiveShop()">🔄 Refresh Shop</button>
+            <button class="btn btn-primary" onclick="testShopBroadcast()">📢 Post to Discord</button>
+          </div>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted);" id="shopMetaDate">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;" id="shopMetaDate">
           Live feed from Fortnite-API. Resets daily at 00:00 UTC.
         </p>
+
+        <!-- Search, Sort & Category Controls -->
+        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <div style="flex: 2; min-width: 220px;">
+              <input type="text" id="shopSearchInput" placeholder="🔍 Search cosmetics, skins, jam tracks, cars..." oninput="filterShopItems()">
+            </div>
+            <div style="min-width: 170px;">
+              <select id="shopSortSelect" onchange="filterShopItems()">
+                <option value="default">↕️ Default Order</option>
+                <option value="price-asc">🪙 Price: Low to High</option>
+                <option value="price-desc">🪙 Price: High to Low</option>
+                <option value="name-asc">🔤 Name: A to Z</option>
+                <option value="rarity">✨ By Rarity</option>
+              </select>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);" id="shopCountBadge">Loading items...</div>
+          </div>
+
+          <!-- Category Pills -->
+          <div class="filter-pills" id="shopCategoryPills">
+            <button class="filter-pill active" onclick="setShopCategory('all', this)">All Items</button>
+            <button class="filter-pill" onclick="setShopCategory('outfit', this)">👕 Outfits / Skins</button>
+            <button class="filter-pill" onclick="setShopCategory('pickaxe', this)">⛏️ Pickaxes</button>
+            <button class="filter-pill" onclick="setShopCategory('emote', this)">💃 Emotes</button>
+            <button class="filter-pill" onclick="setShopCategory('jam track', this)">🎵 Jam Tracks</button>
+            <button class="filter-pill" onclick="setShopCategory('vehicle', this)">🏎️ Vehicles</button>
+            <button class="filter-pill" onclick="setShopCategory('glider', this)">🪂 Gliders & Wraps</button>
+            <button class="filter-pill" onclick="setShopCategory('other', this)">📦 Bundles & Other</button>
+          </div>
+        </div>
+
         <div id="shopContainer" class="shop-grid">
           <p style="color: var(--text-muted);">Fetching current shop items...</p>
         </div>
       </div>
     </section>
 
-    <!-- TAB 3: ISLAND MAP -->
+    <!-- TAB 3: ISLAND MAP & TACTICAL SQUAD DROPS -->
     <section id="tab-map" class="tab-content">
+      <!-- Roulette & Broadcaster -->
+      <div class="card" style="border-color: rgba(0, 168, 255, 0.35);">
+        <div class="card-title">
+          <span>🎲 Squad Drop Roulette & Tactical Landing</span>
+        </div>
+        <div class="roulette-box">
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            Can't agree on where to drop? Spin the wheel to pick a random Island POI or your custom squad drop spots!
+          </p>
+          <div class="drop-target-display" id="rouletteDisplay">
+            🎯 Ready to Drop — Click Spin!
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+            <button class="btn btn-primary" id="spinDropBtn" onclick="spinDropSpot()">🎲 Spin Drop Spot</button>
+            <button class="btn btn-secondary" id="broadcastDropBtn" onclick="broadcastCurrentDrop()" disabled>📢 Broadcast Drop to Discord</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Island Map Card -->
       <div class="card">
         <div class="card-title">
-          <span>🗺️ Current Island Map & POIs</span>
-          <button class="btn btn-secondary" onclick="loadMap()">🔄 Refresh Map</button>
+          <span>🗺️ Chapter 5 Island Satellite & Named Locations</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="mapViewPoiBtn" style="background: rgba(0, 168, 255, 0.2); border: 1px solid var(--accent); color: var(--accent);" onclick="switchMapView('poi')">🏷️ Labeled POIs</button>
+            <button class="btn btn-secondary" id="mapViewCleanBtn" onclick="switchMapView('clean')">🏝️ Clean Satellite</button>
+            <button class="btn btn-secondary" onclick="loadMap()">🔄 Refresh</button>
+          </div>
         </div>
         <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-          <img id="islandMapImg" src="https://fortnite-api.com/images/map_en.png" style="width: 100%; max-width: 780px; border-radius: 12px; border: 1px solid var(--card-border);" alt="Fortnite Map">
-          <div id="poisContainer" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;"></div>
+          <img id="islandMapImg" src="https://fortnite-api.com/images/map_en.png" style="width: 100%; max-width: 820px; border-radius: 12px; border: 1px solid var(--card-border); box-shadow: 0 8px 30px rgba(0,0,0,0.5);" alt="Fortnite Map">
         </div>
+      </div>
+
+      <!-- Custom Squad Drop Spots Manager -->
+      <div class="card">
+        <div class="card-title">
+          <span>📍 Custom Squad Drop Spots & Callouts</span>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          Add your squad's favorite unmarked spots, secret vaults, or callouts (saved permanently in MongoDB Atlas).
+        </p>
+        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <input type="text" id="customPoiName" placeholder="Spot Name (e.g. Condor's Castle, Loot Bunker 3)" style="flex: 2; min-width: 200px;">
+          <input type="text" id="customPoiNote" placeholder="Notes (e.g. 3 slurp barrels, high ground)" style="flex: 3; min-width: 220px;">
+          <button class="btn btn-primary" onclick="submitCustomPoi()">➕ Save Drop Spot</button>
+        </div>
+        <div id="customPoisList" style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <p style="color: var(--text-muted); font-size: 0.85rem;">No custom drop spots saved yet.</p>
+        </div>
+      </div>
+
+      <!-- Official POIs Directory -->
+      <div class="card">
+        <div class="card-title">
+          <span>📍 Official Island Named Locations</span>
+          <input type="text" id="filterPoisInput" placeholder="🔍 Search POIs..." style="max-width: 250px; padding: 8px 12px; font-size: 0.8rem;" oninput="filterMapPois()">
+        </div>
+        <div id="poisContainer" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
       </div>
     </section>
 
@@ -514,6 +690,28 @@ def get_dashboard_html() -> str:
 
     <!-- TAB 6: BOT STATUS & PRESENCE -->
     <section id="tab-status" class="tab-content">
+      <!-- GUIDE: HOW TO REMOVE KITE.ONL / CHANGE PROFILE -->
+      <div class="card" style="border-color: rgba(0, 168, 255, 0.35);">
+        <div class="card-title">
+          <span>🪁 How to Change Bot Profile & Remove "Powered by Kite.onl"</span>
+        </div>
+        <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text);">
+          <p style="margin-bottom: 12px;">
+            The <strong>"🪁 Powered by Kite.onl"</strong> text in your bot's Discord profile is set in the <strong>Discord Developer Portal</strong>, not in the bot's code. You can change or delete it in 30 seconds:
+          </p>
+          <ol style="padding-left: 20px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;">
+            <li>Open the official <a href="https://discord.com/developers/applications" target="_blank" style="color: var(--accent); font-weight: 700; text-decoration: underline;">Discord Developer Portal</a>.</li>
+            <li>Click on your bot application (<strong>Ghost</strong>).</li>
+            <li>Under <strong>General Information</strong>, locate the <strong>DESCRIPTION</strong> field. Delete the Kite link or enter your squad bio.</li>
+            <li>In the left sidebar, click <strong>Bot</strong>. Under <strong>ABOUT ME</strong>, customize or clear any text.</li>
+            <li>Click the green <strong>Save Changes</strong> button at the bottom of the screen.</li>
+          </ol>
+          <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 12px; font-size: 0.8rem; color: #a7f3d0;">
+            ✓ Once saved on Discord, the profile card updates immediately across all servers and user profiles!
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">
           <span>🎮 Bot Activity & Status Text</span>
@@ -792,42 +990,312 @@ def get_dashboard_html() -> str:
       }
     }
 
+    let rawShopItems = [];
+    let currentShopCategory = 'all';
+
     async function loadLiveShop() {
       const container = document.getElementById('shopContainer');
-      container.innerHTML = '<p style="color: var(--text-muted);">Loading shop items from Fortnite API...</p>';
+      container.innerHTML = '<p style="color: var(--text-muted);">Loading live item shop from Fortnite-API...</p>';
       try {
         const res = await fetch('/api/live-shop');
         const data = await res.json();
-        document.getElementById('shopMetaDate').innerText = `Date: ${data.date.slice(0, 10)} • Hash: ${data.hash.slice(0, 12)} • Total: ${data.items.length} items`;
+        rawShopItems = data.items || [];
 
-        container.innerHTML = data.items.map(item => `
-          <div class="shop-item-card">
-            ${item.icon ? `<img class="shop-img" src="${item.icon}" loading="lazy">` : '<div style="height: 110px;"></div>'}
-            <div class="shop-name">${item.name}</div>
-            <div class="shop-price">🪙 ${item.price.toLocaleString()}</div>
-          </div>
-        `).join('');
+        const dateStr = data.date ? data.date.slice(0, 10) : 'Today';
+        const hashStr = data.hash ? data.hash.slice(0, 10) : 'Latest';
+        document.getElementById('shopMetaDate').innerText = `Date: ${dateStr} • Hash: ${hashStr} • Total Items in Catalog: ${rawShopItems.length}`;
+
+        filterShopItems();
       } catch (e) {
         container.innerHTML = `<p style="color: var(--error);">Error loading shop: ${e}</p>`;
       }
     }
 
+    function setShopCategory(cat, btn) {
+      currentShopCategory = cat.toLowerCase();
+      document.querySelectorAll('#shopCategoryPills .filter-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      filterShopItems();
+    }
+
+    function filterShopItems() {
+      const q = (document.getElementById('shopSearchInput').value || '').toLowerCase().trim();
+      const sortMode = document.getElementById('shopSortSelect').value;
+
+      let filtered = rawShopItems.filter(item => {
+        // Category check
+        if (currentShopCategory !== 'all') {
+          const it = (item.item_type || '').toLowerCase();
+          const cat = (item.category || '').toLowerCase();
+          if (currentShopCategory === 'outfit' && !it.includes('outfit') && !cat.includes('outfit')) return false;
+          if (currentShopCategory === 'pickaxe' && !it.includes('pickaxe') && !it.includes('harvesting') && !cat.includes('pickaxe')) return false;
+          if (currentShopCategory === 'emote' && !it.includes('emote') && !it.includes('dance') && !cat.includes('emote')) return false;
+          if (currentShopCategory === 'jam track' && !it.includes('jam track') && !cat.includes('jam track') && !cat.includes('track')) return false;
+          if (currentShopCategory === 'vehicle' && !it.includes('vehicle') && !it.includes('car') && !cat.includes('vehicle')) return false;
+          if (currentShopCategory === 'glider' && !it.includes('glider') && !it.includes('wrap') && !cat.includes('glider') && !cat.includes('wrap')) return false;
+          if (currentShopCategory === 'other') {
+            const known = ['outfit', 'pickaxe', 'harvesting', 'emote', 'dance', 'jam track', 'vehicle', 'car', 'glider', 'wrap'];
+            if (known.some(k => it.includes(k) || cat.includes(k))) return false;
+          }
+        }
+
+        // Search check
+        if (q) {
+          const matchName = (item.name || '').toLowerCase().includes(q);
+          const matchType = (item.item_type || '').toLowerCase().includes(q);
+          const matchCat = (item.category || '').toLowerCase().includes(q);
+          const matchRarity = (item.rarity || '').toLowerCase().includes(q);
+          if (!matchName && !matchType && !matchCat && !matchRarity) return false;
+        }
+
+        return true;
+      });
+
+      // Sorting
+      if (sortMode === 'price-asc') {
+        filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+      } else if (sortMode === 'price-desc') {
+        filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+      } else if (sortMode === 'name-asc') {
+        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      } else if (sortMode === 'rarity') {
+        const rarityScore = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1, iconseries: 6, gaminglegends: 6, marvelseries: 6, starwars: 6, dc: 6 };
+        filtered.sort((a, b) => (rarityScore[b.rarity_clean] || 0) - (rarityScore[a.rarity_clean] || 0));
+      }
+
+      document.getElementById('shopCountBadge').innerText = `Showing ${filtered.length} of ${rawShopItems.length} items`;
+      renderShopItems(filtered);
+    }
+
+    function renderShopItems(items) {
+      const container = document.getElementById('shopContainer');
+      if (items.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-muted);"><p style="font-size: 1.1rem;">No items match your filter!</p><p style="font-size: 0.85rem; margin-top: 6px;">Try clearing your search query or selecting "All Items".</p></div>';
+        return;
+      }
+
+      container.innerHTML = items.map(item => {
+        const rarityClass = 'rarity-' + (item.rarity_clean || 'common');
+        return `
+          <div class="shop-item-card ${rarityClass}">
+            <span class="item-type-badge">${item.item_type || 'Cosmetic'}</span>
+            ${item.icon ? `<img class="shop-img" src="${item.icon}" loading="lazy" alt="${item.name}">` : '<div style="height: 110px; display:flex; align-items:center; justify-content:center; font-size:2rem;">🎁</div>'}
+            <div class="shop-name" title="${item.name}">${item.name}</div>
+            <div class="shop-price">🪙 ${(item.price || 0).toLocaleString()}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    let mapImages = {};
+    let islandPois = [];
+    let customPois = [];
+    let selectedDropTarget = null;
+
     async function loadMap() {
       try {
         const res = await fetch('/api/live-map');
         const data = await res.json();
-        if (data.images && data.images.pois) {
-          document.getElementById('islandMapImg').src = data.images.pois;
+        mapImages = data.images || {};
+        islandPois = (data.pois || []).filter(p => p.name);
+        customPois = data.custom_pois || [];
+
+        if (mapImages.pois) {
+          document.getElementById('islandMapImg').src = mapImages.pois;
         }
-        const poisDiv = document.getElementById('poisContainer');
-        const named = (data.pois || []).filter(p => p.name);
-        poisDiv.innerHTML = named.map(p => `
-          <span style="background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem;">
-            📍 ${p.name}
-          </span>
-        `).join('');
+
+        renderCustomPois();
+        renderOfficialPois(islandPois);
       } catch (e) {
         console.error('Map error:', e);
+      }
+    }
+
+    function switchMapView(mode) {
+      const img = document.getElementById('islandMapImg');
+      const poiBtn = document.getElementById('mapViewPoiBtn');
+      const cleanBtn = document.getElementById('mapViewCleanBtn');
+
+      if (mode === 'clean' && mapImages.blank) {
+        img.src = mapImages.blank;
+        cleanBtn.style.background = 'rgba(0, 168, 255, 0.2)';
+        cleanBtn.style.borderColor = 'var(--accent)';
+        cleanBtn.style.color = 'var(--accent)';
+        poiBtn.style.background = '';
+        poiBtn.style.borderColor = '';
+        poiBtn.style.color = '';
+      } else {
+        img.src = mapImages.pois || 'https://fortnite-api.com/images/map_en.png';
+        poiBtn.style.background = 'rgba(0, 168, 255, 0.2)';
+        poiBtn.style.borderColor = 'var(--accent)';
+        poiBtn.style.color = 'var(--accent)';
+        cleanBtn.style.background = '';
+        cleanBtn.style.borderColor = '';
+        cleanBtn.style.color = '';
+      }
+    }
+
+    function renderCustomPois() {
+      const listDiv = document.getElementById('customPoisList');
+      if (!customPois || customPois.length === 0) {
+        listDiv.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No custom drop spots saved yet. Add your squad\'s secret spots above!</p>';
+        return;
+      }
+      listDiv.innerHTML = customPois.map(p => `
+        <div class="custom-poi-chip">
+          <span style="cursor: pointer;" onclick="selectDropSpot('${p.name.replace(/'/g, "\\'")}')" title="Select as drop target">
+            📍 <strong>${p.name}</strong> ${p.note ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(${p.note})</span>` : ''}
+          </span>
+          <button style="background: transparent; border: none; color: var(--error); cursor: pointer; font-size: 0.85rem; padding: 0 4px;" onclick="deleteCustomPoi('${p.name.replace(/'/g, "\\'")}')" title="Delete custom spot">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function renderOfficialPois(list) {
+      const poisDiv = document.getElementById('poisContainer');
+      poisDiv.innerHTML = list.map(p => `
+        <button class="filter-pill" onclick="selectDropSpot('${p.name.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+          📍 ${p.name}
+        </button>
+      `).join('');
+    }
+
+    function filterMapPois() {
+      const q = (document.getElementById('filterPoisInput').value || '').toLowerCase().trim();
+      const filtered = islandPois.filter(p => p.name.toLowerCase().includes(q));
+      renderOfficialPois(filtered);
+    }
+
+    function selectDropSpot(name) {
+      selectedDropTarget = name;
+      const display = document.getElementById('rouletteDisplay');
+      display.innerText = `🎯 Target Drop: ${name}`;
+      display.style.borderColor = 'var(--gold)';
+      display.style.color = 'var(--gold)';
+      const broadcastBtn = document.getElementById('broadcastDropBtn');
+      broadcastBtn.disabled = false;
+      broadcastBtn.innerText = `📢 Broadcast "${name}" to Discord`;
+      showToast(`Selected drop spot: ${name}`);
+    }
+
+    let isSpinning = false;
+    function spinDropSpot() {
+      if (isSpinning) return;
+      const allCandidates = [
+        ...islandPois.map(p => p.name),
+        ...customPois.map(p => p.name)
+      ];
+      if (allCandidates.length === 0) {
+        showToast('No POIs available to spin!');
+        return;
+      }
+
+      isSpinning = true;
+      const display = document.getElementById('rouletteDisplay');
+      const spinBtn = document.getElementById('spinDropBtn');
+      const broadcastBtn = document.getElementById('broadcastDropBtn');
+      broadcastBtn.disabled = true;
+      spinBtn.disabled = true;
+
+      let counter = 0;
+      const maxSpins = 20;
+      const interval = setInterval(() => {
+        const randomChoice = allCandidates[Math.floor(Math.random() * allCandidates.length)];
+        display.innerText = `🎲 ${randomChoice}`;
+        display.style.borderColor = 'var(--accent)';
+        display.style.color = 'var(--text)';
+        counter++;
+
+        if (counter >= maxSpins) {
+          clearInterval(interval);
+          const finalSpot = allCandidates[Math.floor(Math.random() * allCandidates.length)];
+          selectedDropTarget = finalSpot;
+          display.innerText = `🏆 SQUAD DROP: ${finalSpot}!`;
+          display.style.borderColor = 'var(--gold)';
+          display.style.color = 'var(--gold)';
+          broadcastBtn.disabled = false;
+          broadcastBtn.innerText = `📢 Broadcast "${finalSpot}" to Discord`;
+          spinBtn.disabled = false;
+          isSpinning = false;
+          showToast(`Drop location locked: ${finalSpot}! 🎯`);
+        }
+      }, 70);
+    }
+
+    async function broadcastCurrentDrop() {
+      if (!selectedDropTarget) return;
+      const btn = document.getElementById('broadcastDropBtn');
+      const oldText = btn.innerText;
+      btn.innerText = '⏳ Broadcasting...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/drop/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': getPin() },
+          body: JSON.stringify({ poi_name: selectedDropTarget })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`🎯 Broadcasted ${selectedDropTarget} to ${data.posted_to || 1} Discord channel(s)!`);
+        } else {
+          showToast('Error: ' + data.message);
+        }
+      } catch (e) {
+        showToast('Error: ' + e);
+      } finally {
+        btn.innerText = oldText;
+        btn.disabled = false;
+      }
+    }
+
+    async function submitCustomPoi() {
+      const nameInput = document.getElementById('customPoiName');
+      const noteInput = document.getElementById('customPoiNote');
+      const name = nameInput.value.trim();
+      const note = noteInput.value.trim();
+      if (!name) {
+        showToast('Please enter a spot name!');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/pois/custom', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': getPin() },
+          body: JSON.stringify({ name, note })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Added custom drop spot: ${name} 📍`);
+          nameInput.value = '';
+          noteInput.value = '';
+          await loadMap();
+        } else {
+          showToast('Error: ' + data.message);
+        }
+      } catch (e) {
+        showToast('Error: ' + e);
+      }
+    }
+
+    async function deleteCustomPoi(name) {
+      if (!confirm(`Delete custom spot "${name}"?`)) return;
+      try {
+        const res = await fetch('/api/pois/custom/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': getPin() },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Removed ${name}`);
+          await loadMap();
+        } else {
+          showToast('Error: ' + data.message);
+        }
+      } catch (e) {
+        showToast('Error: ' + e);
       }
     }
 

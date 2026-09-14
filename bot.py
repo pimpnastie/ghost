@@ -38,6 +38,9 @@ from database import (
     track_player,
     untrack_player,
     export_all_data,
+    get_custom_pois,
+    add_custom_poi,
+    delete_custom_poi,
 )
 from dashboard_templates import get_dashboard_html
 from fortnite_client import FortniteClient, FortniteAPIError
@@ -241,22 +244,64 @@ class FortniteBot(commands.Bot):
                     parsed_items = []
                     for e in entries:
                         br = e.get("brItems") or []
-                        name = br[0].get("name", e.get("devName", "Item")) if br else e.get("devName", "Item")
-                        rarity = br[0].get("rarity", {}).get("displayValue", "Common") if br else "Common"
-                        imgs = br[0].get("images", {}) if br else {}
-                        icon = imgs.get("icon") or imgs.get("featured") or imgs.get("smallIcon")
-                        cat = e.get("layout", {}).get("category", "Featured") if isinstance(e.get("layout"), dict) else "Featured"
+                        tracks = e.get("tracks") or []
+                        cars = e.get("cars") or []
+                        layout = e.get("layout") or {}
+                        cat = layout.get("category") if isinstance(layout, dict) else None
+
+                        name = ""
+                        icon = ""
+                        item_type = "Cosmetic"
+                        rarity = "Common"
+
+                        if br:
+                            first = br[0]
+                            name = first.get("name", "")
+                            rarity = first.get("rarity", {}).get("displayValue", "Common")
+                            imgs = first.get("images", {})
+                            icon = imgs.get("icon") or imgs.get("featured") or imgs.get("smallIcon") or ""
+                            item_type = first.get("type", {}).get("displayValue", "Cosmetic")
+                        elif tracks:
+                            first = tracks[0]
+                            title = first.get("title", "Jam Track")
+                            artist = first.get("artist", "")
+                            name = f"{title} - {artist}".strip(" -")
+                            icon = first.get("albumArt", "")
+                            item_type = "Jam Track"
+                            rarity = "Icon Series"
+                        elif cars:
+                            first = cars[0]
+                            name = first.get("name", "Vehicle")
+                            imgs = first.get("images", {})
+                            icon = imgs.get("large") or imgs.get("small") or ""
+                            item_type = "Vehicle"
+                            rarity = "Rare"
+                        else:
+                            dev = e.get("devName", "")
+                            if "tbd" in dev.lower() or "placeholder" in dev.lower():
+                                continue
+                            name = dev.replace("[VIRTUAL]1 x ", "").split(" for ")[0].strip()
+
+                        # Filter out empty names or broken test placeholders
+                        if not name or "tbd" in name.lower() or "placeholder" in name.lower():
+                            continue
+
+                        rarity_clean = rarity.lower().replace(" ", "").replace("_", "")
+
                         parsed_items.append({
                             "name": name,
                             "price": e.get("finalPrice", 0),
                             "regularPrice": e.get("regularPrice", 0),
                             "rarity": rarity,
+                            "rarity_clean": rarity_clean,
                             "icon": icon,
-                            "category": cat or "Shop"
+                            "item_type": item_type,
+                            "category": cat or item_type
                         })
                     return web.json_response({
                         "date": shop_data.get("date", ""),
                         "hash": shop_data.get("hash", ""),
+                        "total": len(parsed_items),
                         "items": parsed_items
                     })
                 except Exception as e:
@@ -265,9 +310,52 @@ class FortniteBot(commands.Bot):
             async def api_live_map(request):
                 try:
                     map_data = await self.fortnite.get_map()
-                    return web.json_response(map_data)
+                    custom_pois = await get_custom_pois()
+                    return web.json_response({
+                        "images": map_data.get("images", {}),
+                        "pois": map_data.get("pois", []),
+                        "custom_pois": custom_pois
+                    })
                 except Exception as e:
                     return web.json_response({"error": str(e)}, status=500)
+
+            async def api_pois_custom_post(request):
+                try:
+                    data = await request.json()
+                    name = str(data.get("name", "")).strip()
+                    note = str(data.get("note", "")).strip()
+                    if not name:
+                        return web.json_response({"status": "error", "message": "Missing name"}, status=400)
+                    saved = await add_custom_poi(name, note)
+                    return web.json_response({"status": "success", "poi": saved})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_pois_custom_delete(request):
+                try:
+                    data = await request.json()
+                    name = str(data.get("name", "")).strip()
+                    if not name:
+                        return web.json_response({"status": "error", "message": "Missing name"}, status=400)
+                    removed = await delete_custom_poi(name)
+                    return web.json_response({"status": "success", "removed": removed})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_drop_broadcast(request):
+                try:
+                    data = await request.json()
+                    poi_name = str(data.get("poi_name", "Random Drop")).strip()
+                    posted_count = 0
+                    for guild in self.guilds:
+                        ch = await self.get_or_detect_shop_channel(guild)
+                        if ch and ch.permissions_for(guild.me).send_messages:
+                            embed = build_drop_embed(poi_name)
+                            await ch.send(embed=embed)
+                            posted_count += 1
+                    return web.json_response({"status": "success", "posted_to": posted_count, "poi": poi_name})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
 
             async def api_live_news(request):
                 try:
@@ -374,6 +462,9 @@ class FortniteBot(commands.Bot):
             app.router.add_get("/api/squad-stats", api_squad_stats)
             app.router.add_get("/api/live-shop", api_live_shop)
             app.router.add_get("/api/live-map", api_live_map)
+            app.router.add_post("/api/pois/custom", api_pois_custom_post)
+            app.router.add_post("/api/pois/custom/delete", api_pois_custom_delete)
+            app.router.add_post("/api/drop/broadcast", api_drop_broadcast)
             app.router.add_get("/api/live-news", api_live_news)
             app.router.add_get("/api/backup/export", api_backup_export)
 

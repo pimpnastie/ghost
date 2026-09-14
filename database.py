@@ -450,3 +450,69 @@ async def export_all_data() -> Dict[str, Any]:
 
     return data
 
+async def get_custom_pois() -> List[Dict[str, Any]]:
+    """Fetches custom squad drop spots from database."""
+    if _mongo_db is not None:
+        cursor = _mongo_db.custom_pois.find({})
+        items = []
+        async for doc in cursor:
+            items.append({
+                "name": doc.get("name"),
+                "note": doc.get("note", ""),
+                "created_at": str(doc.get("created_at", ""))
+            })
+        return items
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS custom_pois (
+                name TEXT PRIMARY KEY,
+                note TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        async with db.execute("SELECT name, note, created_at FROM custom_pois") as cur:
+            rows = await cur.fetchall()
+            return [{"name": r[0], "note": r[1], "created_at": str(r[2])} for r in rows]
+
+async def add_custom_poi(name: str, note: str = "") -> Dict[str, Any]:
+    """Adds or updates a custom squad drop spot."""
+    clean_name = name.strip()
+    clean_note = note.strip()
+    now = datetime.utcnow()
+    if _mongo_db is not None:
+        await _mongo_db.custom_pois.update_one(
+            {"name": clean_name},
+            {"$set": {"name": clean_name, "note": clean_note, "updated_at": now}, "$setOnInsert": {"created_at": now}},
+            upsert=True
+        )
+        return {"name": clean_name, "note": clean_note}
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS custom_pois (
+                name TEXT PRIMARY KEY,
+                note TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            INSERT INTO custom_pois (name, note, created_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(name) DO UPDATE SET note = excluded.note
+        """, (clean_name, clean_note))
+        await db.commit()
+        return {"name": clean_name, "note": clean_note}
+
+async def delete_custom_poi(name: str) -> bool:
+    """Removes a custom squad drop spot."""
+    clean_name = name.strip()
+    if _mongo_db is not None:
+        res = await _mongo_db.custom_pois.delete_one({"name": clean_name})
+        return res.deleted_count > 0
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cur = await db.execute("DELETE FROM custom_pois WHERE name = ?", (clean_name,))
+        await db.commit()
+        return cur.rowcount > 0
+
