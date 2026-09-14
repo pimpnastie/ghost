@@ -28,7 +28,11 @@ from database import (
     get_all_guild_shop_channels,
     get_bot_state,
     set_bot_state,
+    get_global_config,
+    save_global_config,
+    get_all_linked_users_list,
 )
+from dashboard_templates import get_dashboard_html
 from fortnite_client import FortniteClient, FortniteAPIError
 from embed_builder import (
     build_stats_embed,
@@ -65,20 +69,76 @@ class FortniteBot(commands.Bot):
         logger.info("Initializing database...")
         await init_db()
 
-        # Start web server for cloud host health checks (Render, Koyeb, etc.)
+        # Load and apply initial saved configuration
+        initial_cfg = await get_global_config()
+
+        # Start web dashboard and health-check control plane
         try:
             app = web.Application()
-            async def health_check(request):
-                return web.Response(text="Fortnite Discord Bot is Online! 🚀", content_type="text/plain")
-            app.router.add_get("/", health_check)
-            app.router.add_get("/health", health_check)
+
+            async def index(request):
+                return web.Response(text=get_dashboard_html(), content_type="text/html")
+
+            async def health(request):
+                return web.Response(text="Ghost Control Plane is Online! 🚀", content_type="text/plain")
+
+            async def api_status(request):
+                last_hash = await get_bot_state("last_shop_hash")
+                return web.json_response({
+                    "online": self.is_ready(),
+                    "ping": round(self.latency * 1000) if self.latency else 0,
+                    "guild_count": len(self.guilds),
+                    "user": str(self.user) if self.user else "Ghost",
+                    "last_shop_hash": last_hash or "N/A"
+                })
+
+            async def api_config_get(request):
+                cfg = await get_global_config()
+                return web.json_response(cfg)
+
+            async def api_config_post(request):
+                try:
+                    data = await request.json()
+                    await save_global_config(data)
+                    await self.apply_config(data)
+                    return web.json_response({"status": "success", "config": data})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=400)
+
+            async def api_shop_broadcast(request):
+                try:
+                    posted = await self.broadcast_shop()
+                    return web.json_response({"status": "success", "posted_to": posted})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_players_get(request):
+                players = await get_all_linked_users_list()
+                return web.json_response(players)
+
+            async def api_players_unlink(request):
+                data = await request.json()
+                did = int(data.get("discord_id", 0))
+                if did:
+                    await unlink_user(did)
+                return web.json_response({"status": "success"})
+
+            app.router.add_get("/", index)
+            app.router.add_get("/health", health)
+            app.router.add_get("/api/status", api_status)
+            app.router.add_get("/api/config", api_config_get)
+            app.router.add_post("/api/config", api_config_post)
+            app.router.add_post("/api/shop/broadcast", api_shop_broadcast)
+            app.router.add_get("/api/players", api_players_get)
+            app.router.add_post("/api/players/unlink", api_players_unlink)
+
             self._web_runner = web.AppRunner(app)
             await self._web_runner.setup()
             site = web.TCPSite(self._web_runner, "0.0.0.0", PORT)
             await site.start()
-            logger.info(f"Health-check web server started on port {PORT}")
+            logger.info(f"Dashboard control plane online at port {PORT}")
         except Exception as e:
-            logger.warning(f"Could not start health-check web server: {e}")
+            logger.warning(f"Could not start dashboard web server: {e}")
 
         logger.info("Starting shop monitoring background task...")
         self.check_shop_loop.start()
@@ -92,6 +152,63 @@ class FortniteBot(commands.Bot):
             logger.info(f"Successfully synced {len(synced)} slash commands globally.")
         except Exception as e:
             logger.error(f"Failed to sync slash commands: {e}")
+
+    async def apply_config(self, cfg: dict):
+        """Applies configuration updates live to the bot."""
+        try:
+            status_text = cfg.get("status_text", "Fortnite Item Shop & /help")
+            act_type_str = cfg.get("activity_type", "watching").lower()
+            act_map = {
+                "playing": discord.ActivityType.playing,
+                "watching": discord.ActivityType.watching,
+                "listening": discord.ActivityType.listening,
+                "competing": discord.ActivityType.competing,
+            }
+            act_type = act_map.get(act_type_str, discord.ActivityType.watching)
+
+            pres_str = cfg.get("presence_status", "online").lower()
+            pres_map = {
+                "online": discord.Status.online,
+                "idle": discord.Status.idle,
+                "dnd": discord.Status.dnd
+            }
+            pres = pres_map.get(pres_str, discord.Status.online)
+
+            activity = discord.Activity(type=act_type, name=status_text)
+            await self.change_presence(status=pres, activity=activity)
+            logger.info(f"Applied live presence: {act_type_str} '{status_text}' [{pres_str}]")
+        except Exception as e:
+            logger.error(f"Error applying config: {e}")
+
+    async def broadcast_shop(self) -> int:
+        """Broadcasts the current Item Shop to all target channels using active template."""
+        shop_data = await self.fortnite.get_shop()
+        embeds = build_shop_embeds(shop_data)
+        cfg = await get_global_config()
+
+        custom_msg = cfg.get("shop_message", "📢 **The Fortnite Item Shop has updated!**")
+        role_ping = cfg.get("shop_role_ping", "none")
+        role_id = cfg.get("shop_role_id", "").strip()
+
+        prefix_text = custom_msg
+        if role_ping == "everyone":
+            prefix_text = f"@everyone {custom_msg}"
+        elif role_ping == "here":
+            prefix_text = f"@here {custom_msg}"
+        elif role_ping == "role" and role_id:
+            prefix_text = f"<@&{role_id}> {custom_msg}"
+
+        count = 0
+        for guild in self.guilds:
+            try:
+                channel = await self.get_or_detect_shop_channel(guild)
+                if channel and channel.permissions_for(guild.me).send_messages:
+                    await channel.send(content=prefix_text, embeds=embeds)
+                    logger.info(f"Broadcasted shop to #{channel.name} in '{guild.name}'")
+                    count += 1
+            except Exception as e:
+                logger.warning(f"Could not broadcast shop to guild '{guild.name}': {e}")
+        return count
 
     async def close(self):
         if self._web_runner:
@@ -122,6 +239,10 @@ class FortniteBot(commands.Bot):
     async def check_shop_loop(self):
         """Monitors Item Shop resets and automatically posts to configured or auto-detected #fortnite channels."""
         try:
+            cfg = await get_global_config()
+            if not cfg.get("auto_shop_enabled", True):
+                return
+
             shop_data = await self.fortnite.get_shop()
             current_hash = shop_data.get("hash")
             if not current_hash:
@@ -139,21 +260,7 @@ class FortniteBot(commands.Bot):
             if current_hash != last_hash:
                 logger.info(f"New Item Shop detected (old: {last_hash}, new: {current_hash}). Broadcasting...")
                 await set_bot_state("last_shop_hash", current_hash)
-
-                embeds = build_shop_embeds(shop_data)
-
-                # Broadcast to every guild the bot is in
-                for guild in self.guilds:
-                    try:
-                        channel = await self.get_or_detect_shop_channel(guild)
-                        if channel and channel.permissions_for(guild.me).send_messages:
-                            await channel.send(
-                                content="📢 **The Fortnite Item Shop has updated!**",
-                                embeds=embeds
-                            )
-                            logger.info(f"Posted daily shop to #{channel.name} in {guild.name}")
-                    except Exception as err:
-                        logger.warning(f"Could not post shop in guild {guild.name}: {err}")
+                await self.broadcast_shop()
         except Exception as e:
             logger.error(f"Error in shop monitoring loop: {e}")
 
@@ -502,15 +609,19 @@ async def leaderboard_cmd(
 async def drop_cmd(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     try:
+        cfg = await get_global_config()
+        custom_pois = cfg.get("custom_pois", [])
+
         map_data = await bot.fortnite.get_map()
         pois = map_data.get("pois", [])
-        named_pois = [p for p in pois if p.get("name")]
+        named_pois = [p.get("name") for p in pois if p.get("name")]
 
-        if not named_pois:
+        all_candidates = named_pois + custom_pois
+
+        if not all_candidates:
             poi_name = "Tilted Towers (Classic Fallback!)"
         else:
-            selected = random.choice(named_pois)
-            poi_name = selected.get("name", "Unknown Drop Zone")
+            poi_name = random.choice(all_candidates)
 
         images = map_data.get("images", {})
         map_icon = images.get("pois") or images.get("blank")

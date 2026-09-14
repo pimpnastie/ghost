@@ -1,5 +1,5 @@
 import aiosqlite
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Any
 from datetime import datetime
 import logging
 from config import DATABASE_PATH, MONGODB_URI
@@ -214,3 +214,75 @@ async def set_bot_state(key: str, value: str):
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
         """, (key, value))
         await db.commit()
+
+DEFAULT_CONFIG = {
+    "status_text": "Fortnite Item Shop & /help",
+    "activity_type": "watching",
+    "presence_status": "online",
+    "shop_message": "📢 **The Fortnite Item Shop has updated!**",
+    "shop_role_ping": "none",
+    "shop_role_id": "",
+    "auto_shop_enabled": True,
+    "embed_color": "#00A8FF",
+    "embed_footer": "Fortnite-API.com • Ghost Bot",
+    "custom_pois": [],
+    "admin_pin": "ghost123"
+}
+
+async def get_global_config() -> Dict[str, Any]:
+    """Fetches global dashboard settings from database."""
+    if _mongo_db is not None:
+        doc = await _mongo_db.bot_settings.find_one({"key": "global_config"})
+        if doc:
+            doc.pop("_id", None)
+            doc.pop("key", None)
+            merged = DEFAULT_CONFIG.copy()
+            merged.update(doc)
+            return merged
+        return DEFAULT_CONFIG.copy()
+
+    # SQLite fallback
+    raw = await get_bot_state("global_config_json")
+    if raw:
+        import json
+        try:
+            cfg = json.loads(raw)
+            merged = DEFAULT_CONFIG.copy()
+            merged.update(cfg)
+            return merged
+        except Exception:
+            pass
+    return DEFAULT_CONFIG.copy()
+
+async def save_global_config(config: Dict[str, Any]):
+    """Saves updated global settings."""
+    sanitized = {k: v for k, v in config.items() if k != "_id"}
+    if _mongo_db is not None:
+        await _mongo_db.bot_settings.update_one(
+            {"key": "global_config"},
+            {"$set": sanitized},
+            upsert=True
+        )
+        return
+
+    import json
+    await set_bot_state("global_config_json", json.dumps(sanitized))
+
+async def get_all_linked_users_list() -> List[Dict[str, Any]]:
+    """Returns a list of all linked Discord user IDs and Epic usernames."""
+    if _mongo_db is not None:
+        cursor = _mongo_db.user_links.find({})
+        items = []
+        async for doc in cursor:
+            items.append({
+                "discord_user_id": doc.get("discord_user_id"),
+                "epic_username": doc.get("epic_username"),
+                "linked_at": str(doc.get("linked_at", ""))
+            })
+        return items
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("SELECT discord_user_id, epic_username, linked_at FROM user_links") as cursor:
+            rows = await cursor.fetchall()
+            return [{"discord_user_id": r[0], "epic_username": r[1], "linked_at": str(r[2])} for r in rows]
+
