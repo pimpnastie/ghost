@@ -385,11 +385,19 @@ def get_dashboard_html() -> str:
 
         <!-- Track Player & Filter Bar -->
         <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
-          <div style="flex: 2; min-width: 240px;">
-            <input type="text" id="trackPlayerInput" placeholder="Enter Epic Games username (e.g. KING_CONDOR_, p_lmpNastie)" onkeydown="if(event.key==='Enter') trackPlayer()">
+          <div style="flex: 2; min-width: 220px;">
+            <input type="text" id="trackPlayerInput" placeholder="Enter username (e.g. Going__Ghost, KING_CONDOR_)" onkeydown="if(event.key==='Enter') trackPlayer()">
+          </div>
+          <div style="min-width: 150px;">
+            <select id="trackPlatform" style="padding: 12px; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; color: var(--text);">
+              <option value="auto">🌐 Auto-Detect</option>
+              <option value="psn">🎮 PlayStation (PSN)</option>
+              <option value="epic">⚡ Epic Games</option>
+              <option value="xbl">💚 Xbox (XBL)</option>
+            </select>
           </div>
           <button class="btn btn-primary" id="trackBtn" onclick="trackPlayer()">➕ Track Player</button>
-          <div style="flex: 1; min-width: 180px;">
+          <div style="flex: 1; min-width: 160px;">
             <input type="text" id="filterSquadInput" placeholder="🔍 Filter squad cards..." oninput="filterSquadCards()">
           </div>
         </div>
@@ -580,6 +588,8 @@ def get_dashboard_html() -> str:
     async function trackPlayer() {
       const input = document.getElementById('trackPlayerInput');
       const name = input.value.trim();
+      const platformSelect = document.getElementById('trackPlatform');
+      const platform = platformSelect ? platformSelect.value : 'auto';
       if (!name) return;
       const btn = document.getElementById('trackBtn');
       const oldText = btn.innerText;
@@ -590,7 +600,7 @@ def get_dashboard_html() -> str:
         const res = await fetch('/api/players/track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ epic_name: name })
+          body: JSON.stringify({ epic_name: name, account_type: platform })
         });
         const data = await res.json();
         if (res.ok) {
@@ -643,9 +653,12 @@ def get_dashboard_html() -> str:
         const res = await fetch('/api/squad-stats');
         const squad = await res.json();
         if (!Array.isArray(squad) || squad.length === 0) {
-          container.innerHTML = '<div style="grid-column: 1/-1; padding: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p style="font-size: 1.1rem; margin-bottom: 8px;">No squad members tracked yet!</p><p style="color: var(--text-muted);">Enter an Epic Games username above to start tracking stats.</p></div>';
+          container.innerHTML = '<div style="grid-column: 1/-1; padding: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p style="font-size: 1.1rem; margin-bottom: 8px;">No squad members tracked yet!</p><p style="color: var(--text-muted);">Enter an Epic, PlayStation, or Xbox username above to start tracking stats.</p></div>';
           return;
         }
+
+        // Sort by overall wins descending so squad leaderboard ranks top to bottom
+        squad.sort((a, b) => ((b.overall?.wins || 0) - (a.overall?.wins || 0)));
 
         // Determine MVP (highest total wins)
         let maxWins = -1;
@@ -657,8 +670,21 @@ def get_dashboard_html() -> str:
           }
         });
 
-        container.innerHTML = squad.map(p => {
-          const trackerUrl = `https://fortnitetracker.com/profile/all/${encodeURIComponent(p.epic_name)}`;
+        container.innerHTML = squad.map((p, idx) => {
+          let trackerUrl = `https://fortnitetracker.com/profile/all/${encodeURIComponent(p.epic_name)}`;
+          if (p.account_type === 'psn') {
+            trackerUrl = `https://fortnitetracker.com/profile/psn/${encodeURIComponent(p.epic_name)}`;
+          } else if (p.account_type === 'xbl') {
+            trackerUrl = `https://fortnitetracker.com/profile/xbl/${encodeURIComponent(p.epic_name)}`;
+          }
+
+          let platBadge = '<span style="background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); color: var(--text-muted); padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">⚡ Epic</span>';
+          if (p.account_type === 'psn') {
+            platBadge = '<span style="background: rgba(0, 112, 209, 0.2); border: 1px solid rgba(0, 112, 209, 0.4); color: #38bdf8; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">🎮 PSN</span>';
+          } else if (p.account_type === 'xbl') {
+            platBadge = '<span style="background: rgba(16, 124, 65, 0.2); border: 1px solid rgba(16, 124, 65, 0.4); color: #4ade80; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">💚 Xbox</span>';
+          }
+
           const isMvp = (p.epic_name === mvpPlayer && maxWins > 0);
 
           if (p.error) {
@@ -666,7 +692,8 @@ def get_dashboard_html() -> str:
               <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7);">
                 <div class="player-header">
                   <div class="player-name">
-                    <span>🎮 ${p.epic_name}</span>
+                    <span>${p.epic_name}</span>
+                    ${platBadge}
                   </div>
                   <span style="background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
                     🔒 Stats Private
@@ -674,7 +701,7 @@ def get_dashboard_html() -> str:
                 </div>
 
                 <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #fde68a;">
-                  <strong>To make your stats visible:</strong><br>
+                  <strong>To show stats here:</strong><br>
                   1. Launch Fortnite on your console / PC.<br>
                   2. Open <strong>Settings ➔ Account and Privacy</strong>.<br>
                   3. Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.<br>
@@ -699,9 +726,9 @@ def get_dashboard_html() -> str:
             <div class="player-card" style="${isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : ''}">
               <div class="player-header">
                 <div class="player-name">
+                  <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 800;">#${idx + 1}</span>
                   <span>🏆 ${p.epic_name}</span>
-                  ${p.has_controller ? '<span title="Controller Player" style="font-size: 0.9rem;">🎮</span>' : ''}
-                  ${p.has_kbm ? '<span title="Keyboard & Mouse Player" style="font-size: 0.9rem;">⌨️</span>' : ''}
+                  ${platBadge}
                   ${isMvp ? '<span title="Highest Wins in Squad" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); border: 1px solid rgba(255, 215, 0, 0.4); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👑 MVP</span>' : ''}
                 </div>
                 <span class="player-bp">BP Lvl ${p.bp_level}</span>

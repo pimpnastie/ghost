@@ -61,9 +61,10 @@ async def init_db():
         """)
         await db.commit()
 
-async def track_player(epic_username: str, discord_user_id: Optional[int] = None) -> Dict[str, Any]:
-    """Tracks a player in the persistent database."""
+async def track_player(epic_username: str, account_type: str = "epic", discord_user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Tracks a player in the persistent database with platform support."""
     clean_name = epic_username.strip()
+    clean_acc = account_type.strip().lower() if account_type else "epic"
     lower_name = clean_name.lower()
     now = datetime.utcnow()
 
@@ -71,6 +72,7 @@ async def track_player(epic_username: str, discord_user_id: Optional[int] = None
         update_data: Dict[str, Any] = {
             "epic_username": clean_name,
             "epic_username_lower": lower_name,
+            "account_type": clean_acc,
             "updated_at": now
         }
         if discord_user_id:
@@ -80,7 +82,7 @@ async def track_player(epic_username: str, discord_user_id: Optional[int] = None
             {"$set": update_data, "$setOnInsert": {"linked_at": now}},
             upsert=True
         )
-        return {"epic_username": clean_name, "discord_user_id": discord_user_id}
+        return {"epic_username": clean_name, "account_type": clean_acc, "discord_user_id": discord_user_id}
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("""
@@ -90,7 +92,7 @@ async def track_player(epic_username: str, discord_user_id: Optional[int] = None
                 discord_user_id = COALESCE(excluded.discord_user_id, user_links.discord_user_id)
         """, (discord_user_id, clean_name))
         await db.commit()
-        return {"epic_username": clean_name, "discord_user_id": discord_user_id}
+        return {"epic_username": clean_name, "account_type": clean_acc, "discord_user_id": discord_user_id}
 
 async def link_user(discord_id: int, epic_username: str):
     """Links or updates a Discord user's Epic Games username."""
@@ -373,6 +375,7 @@ async def get_all_linked_users_list() -> List[Dict[str, Any]]:
             items.append({
                 "discord_user_id": doc.get("discord_user_id"),
                 "epic_username": doc.get("epic_username"),
+                "account_type": doc.get("account_type", "epic"),
                 "linked_at": str(doc.get("linked_at", ""))
             })
         return items
@@ -380,7 +383,7 @@ async def get_all_linked_users_list() -> List[Dict[str, Any]]:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         async with db.execute("SELECT discord_user_id, epic_username, linked_at FROM user_links") as cursor:
             rows = await cursor.fetchall()
-            return [{"discord_user_id": r[0], "epic_username": r[1], "linked_at": str(r[2])} for r in rows]
+            return [{"discord_user_id": r[0], "epic_username": r[1], "account_type": "epic", "linked_at": str(r[2])} for r in rows]
 
 async def export_all_data() -> Dict[str, Any]:
     """Exports all database collections into a portable JSON-safe dictionary."""

@@ -76,13 +76,25 @@ async def test_fortnite_client():
         assert kc_stats.get("account", {}).get("name") == "KING_CONDOR_"
         print(f"    -> KING_CONDOR_ OK! Level: {kc_stats.get('battlePass', {}).get('level')}, Wins: {kc_stats.get('stats', {}).get('all', {}).get('overall', {}).get('wins')}")
 
-        print("  - Testing p_lmpNastie private status detection...")
+        print("  - Fetching p_lmpNastie stats (now public)...")
+        p_stats = await client.get_player_stats("p_lmpNastie")
+        assert p_stats.get("account", {}).get("name") == "p_lmpNastie"
+        print(f"    -> p_lmpNastie OK! Level: {p_stats.get('battlePass', {}).get('level')}, Wins: {p_stats.get('stats', {}).get('all', {}).get('overall', {}).get('wins')}")
+
+        # 1c. Going__Ghost on PSN
+        print("  - Fetching Going__Ghost on PSN...")
+        gg_stats = await client.get_player_stats("Going__Ghost", account_type="psn")
+        assert gg_stats.get("account", {}).get("name") == "Going__Ghost"
+        print(f"    -> Going__Ghost (PSN) OK! Level: {gg_stats.get('battlePass', {}).get('level')}, Wins: {gg_stats.get('stats', {}).get('all', {}).get('overall', {}).get('wins')}")
+
+        # 1d. QuietCoyote_ private check
+        print("  - Testing QuietCoyote_ privacy status...")
         try:
-            await client.get_player_stats("p_lmpNastie")
-            print("    -> p_lmpNastie public")
-        except Exception as pe:
-            assert "private" in str(pe).lower()
-            print(f"    -> p_lmpNastie privacy notice OK: {pe}")
+            await client.get_player_stats("QuietCoyote_")
+            print("    -> QuietCoyote_ public")
+        except Exception as qe:
+            assert "private" in str(qe).lower()
+            print(f"    -> QuietCoyote_ privacy notice OK: {qe}")
 
         # 2. Shop
         print("  - Fetching live Item Shop...")

@@ -76,15 +76,16 @@ class FortniteBot(commands.Bot):
         logger.info("Initializing database...")
         await init_db()
 
-        # Seed initial squad members if empty
+        # Seed and synchronize active squad members
         try:
-            existing = await get_all_linked_users_list()
-            if not existing:
-                await track_player("KING_CONDOR_")
-                await track_player("p_lmpNastie")
-                logger.info("Initialized default squad tracking for KING_CONDOR_ and p_lmpNastie")
+            await untrack_player("Going_Ghost")  # Remove accidental single-underscore account
+            await track_player("KING_CONDOR_", account_type="epic")
+            await track_player("Going__Ghost", account_type="psn")
+            await track_player("p_lmpNastie", account_type="epic")
+            await track_player("QuietCoyote_", account_type="epic")
+            logger.info("Synchronized squad tracking: KING_CONDOR_, Going__Ghost (PSN), p_lmpNastie, QuietCoyote_")
         except Exception as e:
-            logger.warning(f"Error seeding default squad players: {e}")
+            logger.warning(f"Error seeding squad players: {e}")
 
         # Load and apply initial saved configuration
         initial_cfg = await get_global_config()
@@ -190,8 +191,9 @@ class FortniteBot(commands.Bot):
                 for p in players:
                     ename = p.get("epic_username")
                     did = p.get("discord_user_id")
+                    acc_type = p.get("account_type", "epic")
                     try:
-                        stats = await self.fortnite.get_player_stats(name=ename, time_window="lifetime")
+                        stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime")
                         bp = stats.get("battlePass", {}).get("level", 1)
                         all_stats = stats.get("stats", {}).get("all", {})
                         overall = all_stats.get("overall", {})
@@ -203,6 +205,7 @@ class FortniteBot(commands.Bot):
                         results.append({
                             "discord_id": did,
                             "epic_name": ename,
+                            "account_type": acc_type,
                             "bp_level": bp,
                             "overall": {
                                 "wins": overall.get("wins", 0),
@@ -216,7 +219,7 @@ class FortniteBot(commands.Bot):
                             "solo": solo,
                             "duo": duo,
                             "squad": squad,
-                            "has_controller": bool(gamepad.get("matches", 0) > 0),
+                            "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
                             "has_kbm": bool(kbm.get("matches", 0) > 0),
                             "is_private": False
                         })
@@ -225,6 +228,7 @@ class FortniteBot(commands.Bot):
                         results.append({
                             "discord_id": did,
                             "epic_name": ename,
+                            "account_type": acc_type,
                             "error": str(err),
                             "is_private": is_priv
                         })
@@ -280,27 +284,47 @@ class FortniteBot(commands.Bot):
                 try:
                     data = await request.json()
                     epic_name = str(data.get("epic_name", "")).strip()
+                    req_plat = str(data.get("account_type", "auto")).strip().lower()
                     if not epic_name:
-                        return web.json_response({"status": "error", "message": "Missing epic_name"}, status=400)
+                        return web.json_response({"status": "error", "message": "Missing player name"}, status=400)
 
                     is_private = False
-                    try:
-                        await self.fortnite.get_player_stats(name=epic_name)
-                    except FortniteAPIError as fe:
-                        if fe.status_code == 403:
-                            is_private = True
-                        elif fe.status_code == 404:
-                            return web.json_response({"status": "error", "message": f"Player '{epic_name}' not found on Epic Games."}, status=404)
-                        else:
-                            return web.json_response({"status": "error", "message": str(fe)}, status=400)
+                    resolved_platform = req_plat if req_plat in ["epic", "psn", "xbl"] else None
+                    platforms_to_try = [resolved_platform] if resolved_platform else ["epic", "psn", "xbl"]
+                    found = False
 
-                    await track_player(epic_name)
-                    logger.info(f"Tracked squad player: {epic_name} (private={is_private})")
+                    for plat in platforms_to_try:
+                        try:
+                            await self.fortnite.get_player_stats(name=epic_name, account_type=plat)
+                            resolved_platform = plat
+                            found = True
+                            is_private = False
+                            break
+                        except FortniteAPIError as fe:
+                            if fe.status_code == 403:
+                                resolved_platform = plat
+                                found = True
+                                is_private = True
+                                break
+                            elif fe.status_code == 404:
+                                continue
+                            else:
+                                continue
+
+                    if not found:
+                        return web.json_response({
+                            "status": "error",
+                            "message": f"Player '{epic_name}' not found on Epic Games, PlayStation, or Xbox."
+                        }, status=404)
+
+                    await track_player(epic_name, account_type=resolved_platform)
+                    logger.info(f"Tracked squad player: {epic_name} on {resolved_platform} (private={is_private})")
                     return web.json_response({
                         "status": "success",
                         "epic_name": epic_name,
+                        "account_type": resolved_platform,
                         "is_private": is_private,
-                        "message": "Player added to squad tracking!" if not is_private else "Player tracked! Note: stats are set to Private in Fortnite settings."
+                        "message": f"Player added ({resolved_platform.upper()})!" if not is_private else f"Player added ({resolved_platform.upper()})! Note: stats are set to Private."
                     })
                 except Exception as e:
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
