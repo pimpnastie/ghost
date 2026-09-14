@@ -127,29 +127,29 @@ async def get_linked_users_for_members(discord_ids: List[int]) -> Dict[int, str]
 
 async def set_guild_shop_channel(guild_id: int, channel_id: int):
     """Sets or updates the daily item shop broadcast channel for a guild."""
-    if _mongo_db is not None:
-        await _mongo_db.guild_settings.update_one(
-            {"guild_id": guild_id},
-            {"$set": {"shop_channel_id": channel_id, "updated_at": datetime.utcnow()}},
-            upsert=True
-        )
-        return
-
-    async with aiosqlite.connect(DATABASE_PATH) as db:
-        await db.execute("""
-            INSERT INTO guild_settings (guild_id, shop_channel_id, updated_at)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(guild_id) DO UPDATE SET
-                shop_channel_id = excluded.shop_channel_id,
-                updated_at = CURRENT_TIMESTAMP
-        """, (guild_id, channel_id))
-        await db.commit()
+    await save_guild_settings(guild_id, {"shop_channel_id": channel_id})
 
 async def get_guild_shop_channel(guild_id: int) -> Optional[int]:
     """Gets the shop broadcast channel ID for a specific guild."""
+    settings = await get_guild_settings(guild_id)
+    return settings.get("shop_channel_id")
+
+async def get_guild_settings(guild_id: int) -> Dict[str, Any]:
+    """Retrieves routing settings for a specific guild."""
+    defaults = {
+        "shop_channel_id": None,
+        "news_channel_id": None,
+        "commands_channel_id": None,
+        "auto_shop": True,
+        "auto_news": False,
+        "shop_format": "detailed"
+    }
     if _mongo_db is not None:
         doc = await _mongo_db.guild_settings.find_one({"guild_id": guild_id})
-        return doc.get("shop_channel_id") if doc else None
+        if doc:
+            doc.pop("_id", None)
+            defaults.update(doc)
+        return defaults
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         async with db.execute(
@@ -157,7 +157,33 @@ async def get_guild_shop_channel(guild_id: int) -> Optional[int]:
             (guild_id,)
         ) as cursor:
             row = await cursor.fetchone()
-            return row[0] if row else None
+            if row:
+                defaults["shop_channel_id"] = row[0]
+            return defaults
+
+async def save_guild_settings(guild_id: int, settings: Dict[str, Any]):
+    """Saves updated routing settings for a guild."""
+    sanitized = {k: v for k, v in settings.items() if k != "_id"}
+    sanitized["updated_at"] = datetime.utcnow()
+    if _mongo_db is not None:
+        await _mongo_db.guild_settings.update_one(
+            {"guild_id": guild_id},
+            {"$set": sanitized},
+            upsert=True
+        )
+        return
+
+    # SQLite fallback
+    shop_id = sanitized.get("shop_channel_id")
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            INSERT INTO guild_settings (guild_id, shop_channel_id, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(guild_id) DO UPDATE SET
+                shop_channel_id = excluded.shop_channel_id,
+                updated_at = CURRENT_TIMESTAMP
+        """, (guild_id, shop_id))
+        await db.commit()
 
 async def get_all_guild_shop_channels() -> List[Tuple[int, int]]:
     """Returns list of (guild_id, shop_channel_id) for all configured guilds."""
@@ -178,6 +204,14 @@ async def remove_guild_shop_channel(guild_id: int):
     """Removes shop channel configuration for a guild."""
     if _mongo_db is not None:
         await _mongo_db.guild_settings.delete_one({"guild_id": guild_id})
+        return
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "DELETE FROM guild_settings WHERE guild_id = ?",
+            (guild_id,)
+        )
+        await db.commit()
         return
 
     async with aiosqlite.connect(DATABASE_PATH) as db:

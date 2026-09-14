@@ -5,13 +5,13 @@ def get_dashboard_html() -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ghost Control Plane • Fortnite Bot</title>
+  <title>Ghost Control Plane • Channel Routing & Customization</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #0b0f19;
-      --card-bg: rgba(18, 24, 39, 0.75);
+      --card-bg: rgba(18, 24, 39, 0.8);
       --card-border: rgba(255, 255, 255, 0.08);
       --accent: #00a8ff;
       --accent-glow: rgba(0, 168, 255, 0.35);
@@ -31,15 +31,14 @@ def get_dashboard_html() -> str:
       min-height: 100vh;
       display: flex;
     }
-    /* Sidebar */
     aside {
-      width: 260px;
+      width: 270px;
       background: rgba(11, 15, 25, 0.95);
       border-right: 1px solid var(--card-border);
       display: flex;
       flex-direction: column;
       padding: 24px 16px;
-      gap: 32px;
+      gap: 28px;
       backdrop-filter: blur(12px);
     }
     .brand {
@@ -49,16 +48,17 @@ def get_dashboard_html() -> str:
       padding: 0 8px;
     }
     .brand-icon {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 12px;
       background: linear-gradient(135deg, var(--accent), var(--accent-purple));
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 1.2rem;
       box-shadow: 0 0 20px var(--accent-glow);
     }
-    .brand-text h1 { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.5px; }
+    .brand-text h1 { font-size: 1.15rem; font-weight: 800; }
     .brand-text p { font-size: 0.75rem; color: var(--accent); font-weight: 600; text-transform: uppercase; }
 
     nav { display: flex; flex-direction: column; gap: 6px; }
@@ -84,7 +84,6 @@ def get_dashboard_html() -> str:
       color: var(--accent);
     }
 
-    /* Main Container */
     main {
       flex: 1;
       padding: 36px 40px;
@@ -95,7 +94,7 @@ def get_dashboard_html() -> str:
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       padding-bottom: 20px;
       border-bottom: 1px solid var(--card-border);
     }
@@ -119,12 +118,11 @@ def get_dashboard_html() -> str:
       box-shadow: 0 0 10px var(--success);
     }
 
-    /* KPI Grid */
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 18px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
     .kpi-card {
       background: var(--card-bg);
@@ -132,14 +130,11 @@ def get_dashboard_html() -> str:
       border-radius: 16px;
       padding: 20px;
       backdrop-filter: blur(10px);
-      transition: transform 0.2s ease;
     }
-    .kpi-card:hover { transform: translateY(-2px); }
     .kpi-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
     .kpi-value { font-size: 1.6rem; font-weight: 800; margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
     .kpi-desc { font-size: 0.8rem; color: var(--accent); margin-top: 4px; }
 
-    /* Cards */
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -149,16 +144,14 @@ def get_dashboard_html() -> str:
       backdrop-filter: blur(10px);
     }
     .card-title {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: 700;
       margin-bottom: 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .form-group {
-      margin-bottom: 20px;
-    }
+    .form-group { margin-bottom: 20px; }
     label {
       display: block;
       font-size: 0.85rem;
@@ -166,11 +159,8 @@ def get_dashboard_html() -> str:
       margin-bottom: 8px;
       color: var(--text);
     }
-    .hint {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 5px;
-    }
+    .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; }
+
     input[type="text"], input[type="password"], select, textarea {
       width: 100%;
       background: var(--input-bg);
@@ -186,9 +176,7 @@ def get_dashboard_html() -> str:
       border-color: var(--accent);
       box-shadow: 0 0 10px var(--accent-glow);
     }
-    textarea { resize: vertical; min-height: 80px; }
 
-    /* Button */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -207,23 +195,13 @@ def get_dashboard_html() -> str:
       box-shadow: 0 4px 14px var(--accent-glow);
     }
     .btn-primary:hover { opacity: 0.9; transform: scale(1.02); }
-    .btn-danger {
-      background: var(--error);
-      color: #fff;
-    }
     .btn-secondary {
       background: rgba(255, 255, 255, 0.08);
       color: var(--text);
     }
     .btn-secondary:hover { background: rgba(255, 255, 255, 0.14); }
 
-    /* Color picker grid */
-    .color-swatches {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-    }
+    .color-swatches { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
     .swatch {
       width: 36px;
       height: 36px;
@@ -235,22 +213,35 @@ def get_dashboard_html() -> str:
     .swatch:hover { transform: scale(1.1); }
     .swatch.active { border-color: #fff; box-shadow: 0 0 12px #fff; }
 
-    /* Table */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-    }
-    th, td {
-      padding: 12px 16px;
-      text-align: left;
-      font-size: 0.85rem;
-      border-bottom: 1px solid var(--card-border);
-    }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { padding: 12px 16px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid var(--card-border); }
     th { color: var(--text-muted); text-transform: uppercase; font-size: 0.75rem; font-weight: 700; }
     tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
-    /* Toast */
+    .channel-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .channel-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-blue { background: rgba(0, 168, 255, 0.2); color: var(--accent); }
+    .badge-purple { background: rgba(147, 51, 234, 0.2); color: #c084fc; }
+
     #toast {
       position: fixed;
       bottom: 24px;
@@ -269,11 +260,7 @@ def get_dashboard_html() -> str:
       pointer-events: none;
       z-index: 999;
     }
-    #toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
+    #toast.show { opacity: 1; transform: translateY(0); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
@@ -286,7 +273,7 @@ def get_dashboard_html() -> str:
 </head>
 <body>
 
-  <!-- Sidebar -->
+  <!-- Sidebar Navigation -->
   <aside>
     <div class="brand">
       <div class="brand-icon">⚡</div>
@@ -297,26 +284,26 @@ def get_dashboard_html() -> str:
     </div>
 
     <nav>
-      <button class="nav-btn active" onclick="switchTab('overview')">📊 Overview</button>
+      <button class="nav-btn active" onclick="switchTab('routing')">🎯 Channel Routing</button>
+      <button class="nav-btn" onclick="switchTab('overview')">📊 Telemetry</button>
       <button class="nav-btn" onclick="switchTab('presence')">🎮 Presence & Status</button>
-      <button class="nav-btn" onclick="switchTab('shop')">🛒 Shop Broadcasts</button>
       <button class="nav-btn" onclick="switchTab('theme')">🎨 Colors & Theme</button>
       <button class="nav-btn" onclick="switchTab('players')">👥 Linked Players</button>
       <button class="nav-btn" onclick="switchTab('drops')">📍 Custom Drop POIs</button>
     </nav>
 
     <div style="margin-top: auto; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--card-border);">
-      <p style="font-size: 0.75rem; color: var(--text-muted);">Admin Session</p>
-      <input type="password" id="adminPin" placeholder="Enter PIN (ghost123)" style="margin-top: 6px; padding: 8px 10px; font-size: 0.8rem;" oninput="savePin()">
+      <p style="font-size: 0.75rem; color: var(--text-muted);">Admin Session PIN</p>
+      <input type="password" id="adminPin" placeholder="ghost123" style="margin-top: 6px; padding: 8px 10px; font-size: 0.8rem;" oninput="savePin()">
     </div>
   </aside>
 
-  <!-- Main Content -->
+  <!-- Main Content Area -->
   <main>
     <header>
       <div class="header-title">
-        <h2 id="pageTitle">System Telemetry & Controls</h2>
-        <p>Live management interface for Ghost Discord Bot</p>
+        <h2 id="pageTitle">Channel Post Routing</h2>
+        <p>Specify exact channels for Item Shop drops, in-game news, and commands.</p>
       </div>
       <div class="auth-badge">
         <div class="status-dot"></div>
@@ -324,8 +311,98 @@ def get_dashboard_html() -> str:
       </div>
     </header>
 
-    <!-- TAB: Overview -->
-    <section id="tab-overview" class="tab-content active">
+    <!-- TAB 1: CHANNEL ROUTING (PRIMARY USER FOCUS) -->
+    <section id="tab-routing" class="tab-content active">
+      <div class="card">
+        <div class="card-title">
+          <span>🎯 Server Channel Matrix</span>
+          <button class="btn btn-secondary" onclick="loadGuildRouting()">🔄 Reload Channels</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
+          Select target text channels for each content type. Ghost routes messages directly without role pings.
+        </p>
+
+        <!-- Guild Selector -->
+        <div class="form-group">
+          <label>Target Discord Server</label>
+          <select id="guildSelector" onchange="onGuildSelectChange()">
+            <option value="">Loading connected servers...</option>
+          </select>
+          <div class="hint">Choose the server to configure.</div>
+        </div>
+
+        <div id="routingForms">
+          <!-- Item Shop Channel Routing -->
+          <div class="channel-box">
+            <div class="channel-box-header">
+              <div>
+                <span class="badge badge-blue">Content Type</span>
+                <strong style="margin-left: 8px; font-size: 1rem;">Daily Item Shop Drops</strong>
+              </div>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="testPostShop()">🚀 Test Post Shop Now</button>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label>Select Channel for Item Shop</label>
+              <select id="routeShopChannel">
+                <option value="">-- Choose Channel --</option>
+              </select>
+              <div class="hint">Recommended: <code>#fortnite</code>, <code>#item-shop</code>, or <code>#general</code>.</div>
+            </div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                <input type="checkbox" id="routeAutoShop" checked> Auto-broadcast daily at 00:00 UTC
+              </label>
+            </div>
+          </div>
+
+          <!-- In-Game News Channel Routing -->
+          <div class="channel-box">
+            <div class="channel-box-header">
+              <div>
+                <span class="badge badge-purple">Content Type</span>
+                <strong style="margin-left: 8px; font-size: 1rem;">Battle Royale In-Game News & Updates</strong>
+              </div>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="testPostNews()">📰 Test Post News Now</button>
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label>Select Channel for News</label>
+              <select id="routeNewsChannel">
+                <option value="">-- Disabled (Do not post news) --</option>
+              </select>
+              <div class="hint">Posts official Epic Games banners and update patch notices.</div>
+            </div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                <input type="checkbox" id="routeAutoNews"> Auto-post new in-game announcements
+              </label>
+            </div>
+          </div>
+
+          <!-- Bot Command Restrict Channel -->
+          <div class="channel-box">
+            <div class="channel-box-header">
+              <div>
+                <span class="badge" style="background: rgba(255,255,255,0.1);">Optional</span>
+                <strong style="margin-left: 8px; font-size: 1rem;">Dedicated Bot Commands Channel</strong>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>Designated Commands Channel</label>
+              <select id="routeCommandsChannel">
+                <option value="">-- Allow commands in all channels --</option>
+              </select>
+              <div class="hint">Guides members to use <code>/stats</code> and <code>/leaderboard</code> in a specific room.</div>
+            </div>
+          </div>
+
+          <!-- Save Button -->
+          <button class="btn btn-primary" onclick="saveGuildRouting()" style="margin-top: 10px;">💾 Save Channel Routing</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TELEMETRY -->
+    <section id="tab-overview" class="tab-content">
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-label">Gateway Latency</div>
@@ -338,7 +415,7 @@ def get_dashboard_html() -> str:
           <div class="kpi-desc">Active Servers</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Database Mode</div>
+          <div class="kpi-label">Storage Backend</div>
           <div class="kpi-value" id="kpiDb" style="color: var(--success); font-size: 1.3rem;">MongoDB Atlas</div>
           <div class="kpi-desc">Live Cluster</div>
         </div>
@@ -348,31 +425,18 @@ def get_dashboard_html() -> str:
           <div class="kpi-desc">Daily Rotation State</div>
         </div>
       </div>
-
-      <div class="card">
-        <div class="card-title">
-          <span>⚡ Live Actions & Broadcast</span>
-        </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-          Manually test shop notification or verify channel synchronization across all connected guilds.
-        </p>
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-          <button class="btn btn-primary" onclick="triggerBroadcast()">📢 Post Shop to Discord Channels Now</button>
-          <button class="btn btn-secondary" onclick="fetchStatus()">🔄 Refresh Telemetry</button>
-        </div>
-      </div>
     </section>
 
-    <!-- TAB: Presence -->
+    <!-- TAB 3: PRESENCE & IDENTITY -->
     <section id="tab-presence" class="tab-content">
       <div class="card">
         <div class="card-title">
           <span>🎮 Bot Activity & Status</span>
         </div>
         <div class="form-group">
-          <label>Status Text (What the bot is doing)</label>
+          <label>Status Text</label>
           <input type="text" id="statusText" placeholder="e.g. Fortnite Item Shop & /help">
-          <div class="hint">Visible under Ghost's username in server member lists.</div>
+          <div class="hint">Visible under Ghost's username in Discord.</div>
         </div>
         <div class="form-group">
           <label>Activity Type</label>
@@ -395,43 +459,7 @@ def get_dashboard_html() -> str:
       </div>
     </section>
 
-    <!-- TAB: Shop -->
-    <section id="tab-shop" class="tab-content">
-      <div class="card">
-        <div class="card-title">
-          <span>🛒 Item Shop Announcement Engine</span>
-        </div>
-        <div class="form-group">
-          <label>Auto-Broadcast Daily at 00:00 UTC</label>
-          <select id="autoShopEnabled">
-            <option value="true">Enabled (Broadcast new shop when rotated)</option>
-            <option value="false">Disabled (Manual trigger only)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Notification Message Template</label>
-          <input type="text" id="shopMessage" placeholder="📢 **The Fortnite Item Shop has updated!**">
-          <div class="hint">Header text sent above the embed carousel.</div>
-        </div>
-        <div class="form-group">
-          <label>Notification Ping Role</label>
-          <select id="shopRolePing">
-            <option value="none">No mention (Silent)</option>
-            <option value="here">@here</option>
-            <option value="everyone">@everyone</option>
-            <option value="role">Custom Role ID</option>
-          </select>
-        </div>
-        <div class="form-group" id="roleIdGroup" style="display: none;">
-          <label>Custom Role ID</label>
-          <input type="text" id="shopRoleId" placeholder="e.g. 123456789012345678">
-          <div class="hint">Right-click a role in Discord and click 'Copy Role ID'.</div>
-        </div>
-        <button class="btn btn-primary" onclick="saveShopSettings()">💾 Save Shop Settings</button>
-      </div>
-    </section>
-
-    <!-- TAB: Theme -->
+    <!-- TAB 4: THEME & EMBEDS -->
     <section id="tab-theme" class="tab-content">
       <div class="card">
         <div class="card-title">
@@ -457,16 +485,13 @@ def get_dashboard_html() -> str:
       </div>
     </section>
 
-    <!-- TAB: Players -->
+    <!-- TAB 5: LINKED PLAYERS -->
     <section id="tab-players" class="tab-content">
       <div class="card">
         <div class="card-title">
           <span>👥 Linked Epic Games Accounts</span>
           <button class="btn btn-secondary" onclick="loadPlayers()">🔄 Refresh Table</button>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
-          View all server members who linked their Epic Games accounts via <code>/link</code>.
-        </p>
         <table id="playersTable">
           <thead>
             <tr>
@@ -483,7 +508,7 @@ def get_dashboard_html() -> str:
       </div>
     </section>
 
-    <!-- TAB: Custom Drops -->
+    <!-- TAB 6: CUSTOM DROP POIS -->
     <section id="tab-drops" class="tab-content">
       <div class="card">
         <div class="card-title">
@@ -496,9 +521,7 @@ def get_dashboard_html() -> str:
           <input type="text" id="newPoiInput" placeholder="e.g. Grandma's Secret Cabin" style="flex: 1;">
           <button class="btn btn-primary" onclick="addCustomPoi()">➕ Add Location</button>
         </div>
-        <ul id="customPoiList" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
-          <!-- Custom POIs dynamic items -->
-        </ul>
+        <ul id="customPoiList" style="list-style: none; display: flex; flex-direction: column; gap: 8px;"></ul>
       </div>
     </section>
 
@@ -508,6 +531,7 @@ def get_dashboard_html() -> str:
 
   <script>
     let globalConfig = {};
+    let cachedGuilds = [];
 
     function switchTab(tabId) {
       document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -517,6 +541,7 @@ def get_dashboard_html() -> str:
       const target = document.getElementById('tab-' + tabId);
       if (target) target.classList.add('active');
       if (tabId === 'players') loadPlayers();
+      if (tabId === 'routing') loadGuildRouting();
     }
 
     function showToast(msg) {
@@ -539,10 +564,6 @@ def get_dashboard_html() -> str:
       document.getElementById('embedColor').value = hex;
     }
 
-    document.getElementById('shopRolePing').addEventListener('change', (e) => {
-      document.getElementById('roleIdGroup').style.display = e.target.value === 'role' ? 'block' : 'none';
-    });
-
     async function fetchStatus() {
       try {
         const res = await fetch('/api/status');
@@ -550,9 +571,119 @@ def get_dashboard_html() -> str:
         document.getElementById('kpiPing').innerText = data.ping + ' ms';
         document.getElementById('kpiGuilds').innerText = data.guild_count;
         document.getElementById('gatewayStatus').innerText = data.online ? 'Online (Gateway OK)' : 'Connecting...';
-        document.getElementById('kpiShopHash').innerText = data.last_shop_hash || 'c7f7afc59ed3...';
+        document.getElementById('kpiShopHash').innerText = data.last_shop_hash || 'c7f7afc5...';
       } catch (err) {
         document.getElementById('gatewayStatus').innerText = 'Offline / Error';
+      }
+    }
+
+    async function loadGuildRouting() {
+      try {
+        const res = await fetch('/api/guilds-channels');
+        cachedGuilds = await res.json();
+        const selector = document.getElementById('guildSelector');
+
+        if (cachedGuilds.length === 0) {
+          selector.innerHTML = '<option value="">No servers found. Invite bot to a server first!</option>';
+          return;
+        }
+
+        selector.innerHTML = cachedGuilds.map((g, idx) => `
+          <option value="${g.id}">${g.name} (${g.channels.length} text channels)</option>
+        `).join('');
+
+        onGuildSelectChange();
+      } catch (e) {
+        console.error('Failed to load guilds:', e);
+      }
+    }
+
+    function onGuildSelectChange() {
+      const selectedId = document.getElementById('guildSelector').value;
+      const guild = cachedGuilds.find(g => g.id === selectedId);
+      if (!guild) return;
+
+      const channels = guild.channels || [];
+      const settings = guild.settings || {};
+
+      // Populate Shop dropdown
+      const shopSelect = document.getElementById('routeShopChannel');
+      shopSelect.innerHTML = '<option value="">-- Disabled (No shop posts) --</option>' +
+        channels.map(c => `<option value="${c.id}" ${settings.shop_channel_id === c.id ? 'selected' : ''}>#${c.name}</option>`).join('');
+
+      // Populate News dropdown
+      const newsSelect = document.getElementById('routeNewsChannel');
+      newsSelect.innerHTML = '<option value="">-- Disabled (No news posts) --</option>' +
+        channels.map(c => `<option value="${c.id}" ${settings.news_channel_id === c.id ? 'selected' : ''}>#${c.name}</option>`).join('');
+
+      // Populate Commands dropdown
+      const cmdsSelect = document.getElementById('routeCommandsChannel');
+      cmdsSelect.innerHTML = '<option value="">-- Allow in all channels --</option>' +
+        channels.map(c => `<option value="${c.id}" ${settings.commands_channel_id === c.id ? 'selected' : ''}>#${c.name}</option>`).join('');
+
+      document.getElementById('routeAutoShop').checked = settings.auto_shop !== false;
+      document.getElementById('routeAutoNews').checked = Boolean(settings.auto_news);
+    }
+
+    async function saveGuildRouting() {
+      const guildId = document.getElementById('guildSelector').value;
+      if (!guildId) {
+        alert('Please select a server first.');
+        return;
+      }
+
+      const payload = {
+        guild_id: guildId,
+        shop_channel_id: document.getElementById('routeShopChannel').value,
+        news_channel_id: document.getElementById('routeNewsChannel').value,
+        commands_channel_id: document.getElementById('routeCommandsChannel').value,
+        auto_shop: document.getElementById('routeAutoShop').checked,
+        auto_news: document.getElementById('routeAutoNews').checked
+      };
+
+      try {
+        const res = await fetch('/api/guild-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': getPin() },
+          body: JSON.stringify(payload)
+        });
+        const resp = await res.json();
+        if (resp.status === 'success') {
+          showToast('Channel routing saved & applied live! 🎯');
+          loadGuildRouting();
+        } else {
+          alert('Error: ' + resp.message);
+        }
+      } catch (e) {
+        alert('Network error: ' + e);
+      }
+    }
+
+    async function testPostShop() {
+      if (!confirm('Post the live Item Shop to the selected channel now?')) return;
+      try {
+        const res = await fetch('/api/shop/broadcast', {
+          method: 'POST',
+          headers: { 'X-Admin-Pin': getPin() }
+        });
+        const resp = await res.json();
+        showToast(`Item shop posted to ${resp.posted_to} channel(s)! 🛒`);
+      } catch (e) {
+        alert('Error: ' + e);
+      }
+    }
+
+    async function testPostNews() {
+      if (!confirm('Post latest in-game news to the selected news channel now?')) return;
+      try {
+        const res = await fetch('/api/news/broadcast', {
+          method: 'POST',
+          headers: { 'X-Admin-Pin': getPin() }
+        });
+        const resp = await res.json();
+        showToast(`News posted to ${resp.posted_to} channel(s)! 📰`);
+      } catch (e) {
+        alert('Error: ' + e);
       }
     }
 
@@ -563,11 +694,6 @@ def get_dashboard_html() -> str:
         document.getElementById('statusText').value = globalConfig.status_text || '';
         document.getElementById('activityType').value = globalConfig.activity_type || 'watching';
         document.getElementById('presenceStatus').value = globalConfig.presence_status || 'online';
-        document.getElementById('shopMessage').value = globalConfig.shop_message || '';
-        document.getElementById('autoShopEnabled').value = String(globalConfig.auto_shop_enabled);
-        document.getElementById('shopRolePing').value = globalConfig.shop_role_ping || 'none';
-        document.getElementById('shopRoleId').value = globalConfig.shop_role_id || '';
-        document.getElementById('roleIdGroup').style.display = globalConfig.shop_role_ping === 'role' ? 'block' : 'none';
         document.getElementById('embedColor').value = globalConfig.embed_color || '#00A8FF';
         document.getElementById('embedFooter').value = globalConfig.embed_footer || '';
         renderPois(globalConfig.custom_pois || []);
@@ -588,11 +714,9 @@ def get_dashboard_html() -> str:
         if (resp.status === 'success') {
           globalConfig = resp.config;
           showToast('Settings saved & applied live! 🚀');
-        } else {
-          alert('Error: ' + resp.message);
         }
       } catch (err) {
-        alert('Failed to connect to server: ' + err);
+        alert('Failed to connect: ' + err);
       }
     }
 
@@ -604,38 +728,11 @@ def get_dashboard_html() -> str:
       });
     }
 
-    function saveShopSettings() {
-      saveConfigToServer({
-        auto_shop_enabled: document.getElementById('autoShopEnabled').value === 'true',
-        shop_message: document.getElementById('shopMessage').value,
-        shop_role_ping: document.getElementById('shopRolePing').value,
-        shop_role_id: document.getElementById('shopRoleId').value
-      });
-    }
-
     function saveThemeSettings() {
       saveConfigToServer({
         embed_color: document.getElementById('embedColor').value,
         embed_footer: document.getElementById('embedFooter').value
       });
-    }
-
-    async function triggerBroadcast() {
-      if (!confirm('Broadcast the latest Fortnite Item Shop to all connected channels now?')) return;
-      try {
-        const res = await fetch('/api/shop/broadcast', {
-          method: 'POST',
-          headers: { 'X-Admin-Pin': getPin() }
-        });
-        const resp = await res.json();
-        if (resp.status === 'success') {
-          showToast(`Broadcasted to ${resp.posted_to} channels! 🛒`);
-        } else {
-          alert('Broadcast error: ' + resp.message);
-        }
-      } catch (e) {
-        alert('Error: ' + e);
-      }
     }
 
     async function loadPlayers() {
@@ -657,7 +754,7 @@ def get_dashboard_html() -> str:
           </tr>
         `).join('');
       } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="color: var(--error);">Error loading players</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--error);">Error loading players</td></tr>';
       }
     }
 
@@ -706,6 +803,7 @@ def get_dashboard_html() -> str:
       document.getElementById('adminPin').value = savedPin;
       fetchStatus();
       fetchConfig();
+      loadGuildRouting();
       setInterval(fetchStatus, 15000);
     };
   </script>

@@ -26,6 +26,8 @@ from database import (
     set_guild_shop_channel,
     get_guild_shop_channel,
     get_all_guild_shop_channels,
+    get_guild_settings,
+    save_guild_settings,
     get_bot_state,
     set_bot_state,
     get_global_config,
@@ -112,6 +114,61 @@ class FortniteBot(commands.Bot):
                 except Exception as e:
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
 
+            async def api_guilds_channels(request):
+                guild_list = []
+                for guild in self.guilds:
+                    channels = [
+                        {"id": str(ch.id), "name": ch.name}
+                        for ch in guild.text_channels
+                        if ch.permissions_for(guild.me).send_messages
+                    ]
+                    settings = await get_guild_settings(guild.id)
+                    guild_list.append({
+                        "id": str(guild.id),
+                        "name": guild.name,
+                        "channels": channels,
+                        "settings": {
+                            "shop_channel_id": str(settings.get("shop_channel_id") or ""),
+                            "news_channel_id": str(settings.get("news_channel_id") or ""),
+                            "commands_channel_id": str(settings.get("commands_channel_id") or ""),
+                            "auto_shop": settings.get("auto_shop", True),
+                            "auto_news": settings.get("auto_news", False),
+                            "shop_format": settings.get("shop_format", "detailed")
+                        }
+                    })
+                return web.json_response(guild_list)
+
+            async def api_guild_settings_post(request):
+                try:
+                    data = await request.json()
+                    guild_id = int(data.get("guild_id", 0))
+                    if not guild_id:
+                        return web.json_response({"status": "error", "message": "Missing guild_id"}, status=400)
+
+                    shop_ch = int(data.get("shop_channel_id")) if data.get("shop_channel_id") else None
+                    news_ch = int(data.get("news_channel_id")) if data.get("news_channel_id") else None
+                    cmds_ch = int(data.get("commands_channel_id")) if data.get("commands_channel_id") else None
+
+                    await save_guild_settings(guild_id, {
+                        "shop_channel_id": shop_ch,
+                        "news_channel_id": news_ch,
+                        "commands_channel_id": cmds_ch,
+                        "auto_shop": bool(data.get("auto_shop", True)),
+                        "auto_news": bool(data.get("auto_news", False)),
+                        "shop_format": data.get("shop_format", "detailed")
+                    })
+                    logger.info(f"Updated channel routing for guild {guild_id}")
+                    return web.json_response({"status": "success"})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=400)
+
+            async def api_news_broadcast(request):
+                try:
+                    posted = await self.broadcast_news()
+                    return web.json_response({"status": "success", "posted_to": posted})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
             async def api_players_get(request):
                 players = await get_all_linked_users_list()
                 return web.json_response(players)
@@ -129,6 +186,9 @@ class FortniteBot(commands.Bot):
             app.router.add_get("/api/config", api_config_get)
             app.router.add_post("/api/config", api_config_post)
             app.router.add_post("/api/shop/broadcast", api_shop_broadcast)
+            app.router.add_post("/api/news/broadcast", api_news_broadcast)
+            app.router.add_get("/api/guilds-channels", api_guilds_channels)
+            app.router.add_post("/api/guild-settings", api_guild_settings_post)
             app.router.add_get("/api/players", api_players_get)
             app.router.add_post("/api/players/unlink", api_players_unlink)
 
@@ -142,6 +202,9 @@ class FortniteBot(commands.Bot):
 
         logger.info("Starting shop monitoring background task...")
         self.check_shop_loop.start()
+
+        logger.info("Starting news monitoring background task...")
+        self.check_news_loop.start()
 
         logger.info("Starting keep-alive background task...")
         self.keep_alive_loop.start()
@@ -210,13 +273,65 @@ class FortniteBot(commands.Bot):
                 logger.warning(f"Could not broadcast shop to guild '{guild.name}': {e}")
         return count
 
+    async def broadcast_news(self) -> int:
+        """Broadcasts the latest in-game Battle Royale news to designated news channels."""
+        news_data = await self.fortnite.get_news()
+        embeds = build_news_embeds(news_data)
+        count = 0
+        for guild in self.guilds:
+            try:
+                settings = await get_guild_settings(guild.id)
+                ch_id = settings.get("news_channel_id")
+                if ch_id:
+                    channel = guild.get_channel(int(ch_id))
+                    if channel and channel.permissions_for(guild.me).send_messages:
+                        await channel.send(
+                            content="📰 **Fortnite Battle Royale In-Game News Update!**",
+                            embeds=embeds
+                        )
+                        logger.info(f"Broadcasted news to #{channel.name} in '{guild.name}'")
+                        count += 1
+            except Exception as e:
+                logger.warning(f"Could not broadcast news to guild '{guild.name}': {e}")
+        return count
+
     async def close(self):
         if self._web_runner:
             await self._web_runner.cleanup()
         self.keep_alive_loop.cancel()
         self.check_shop_loop.cancel()
+        self.check_news_loop.cancel()
         await self.fortnite.close()
         await super().close()
+
+    @tasks.loop(minutes=15)
+    async def check_news_loop(self):
+        """Monitors in-game news and broadcasts when new announcements drop."""
+        try:
+            news_data = await self.fortnite.get_news()
+            motds = news_data.get("motds", [])
+            if not motds:
+                return
+
+            latest_id = motds[0].get("id")
+            if not latest_id:
+                return
+
+            last_id = await get_bot_state("last_news_id")
+            if last_id is None:
+                await set_bot_state("last_news_id", latest_id)
+                return
+
+            if latest_id != last_id:
+                logger.info(f"New Fortnite in-game news detected ({latest_id}). Broadcasting...")
+                await set_bot_state("last_news_id", latest_id)
+                await self.broadcast_news()
+        except Exception as e:
+            logger.error(f"Error in news monitoring loop: {e}")
+
+    @check_news_loop.before_loop
+    async def before_check_news_loop(self):
+        await self.wait_until_ready()
 
     @tasks.loop(minutes=10)
     async def keep_alive_loop(self):
