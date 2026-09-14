@@ -136,6 +136,8 @@ class FortniteBot(commands.Bot):
     async def refresh_squad_telemetry(self) -> List[Dict[str, Any]]:
         """Concurrently fetches stats for all tracked squad members and updates persistent cache."""
         players = await get_all_linked_users_list()
+        existing_map = {x.get("epic_name", "").lower(): x for x in self._squad_stats_cache.get("data", []) if not x.get("error")}
+        sem = asyncio.Semaphore(2)
 
         async def fetch_one(p):
             ename = p.get("epic_username")
@@ -146,48 +148,77 @@ class FortniteBot(commands.Bot):
                 u = self.get_user(int(did))
                 discord_tag = str(u) if u else None
 
-            try:
-                stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime")
-                bp = stats.get("battlePass", {}).get("level", 1)
-                all_stats = stats.get("stats", {}).get("all", {})
-                overall = all_stats.get("overall", {})
-                solo = all_stats.get("solo", {})
-                duo = all_stats.get("duo", {})
-                squad = all_stats.get("squad", {})
-                gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
-                kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
-                return {
-                    "discord_id": did,
-                    "discord_tag": discord_tag,
-                    "epic_name": ename,
-                    "account_type": acc_type,
-                    "bp_level": bp,
-                    "overall": {
-                        "wins": overall.get("wins", 0),
-                        "kills": overall.get("kills", 0),
-                        "kd": overall.get("kd", 0.0),
-                        "winRate": overall.get("winRate", 0.0),
-                        "matches": overall.get("matches", 0),
-                        "top3": overall.get("top3", 0),
-                        "top10": overall.get("top10", 0)
-                    },
-                    "solo": solo,
-                    "duo": duo,
-                    "squad": squad,
-                    "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
-                    "has_kbm": bool(kbm.get("matches", 0) > 0),
-                    "is_private": False
-                }
-            except Exception as err:
-                is_priv = "private" in str(err).lower()
-                return {
-                    "discord_id": did,
-                    "discord_tag": discord_tag,
-                    "epic_name": ename,
-                    "account_type": acc_type,
-                    "error": str(err),
-                    "is_private": is_priv
-                }
+            async with sem:
+                for attempt in range(3):
+                    try:
+                        stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime")
+                        bp = stats.get("battlePass", {}).get("level", 1)
+                        all_stats = stats.get("stats", {}).get("all", {})
+                        overall = all_stats.get("overall", {})
+                        solo = all_stats.get("solo", {})
+                        duo = all_stats.get("duo", {})
+                        squad = all_stats.get("squad", {})
+                        gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
+                        kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
+                        return {
+                            "discord_id": did,
+                            "discord_tag": discord_tag,
+                            "epic_name": ename,
+                            "account_type": acc_type,
+                            "bp_level": bp,
+                            "overall": {
+                                "wins": overall.get("wins", 0),
+                                "kills": overall.get("kills", 0),
+                                "kd": overall.get("kd", 0.0),
+                                "winRate": overall.get("winRate", 0.0),
+                                "matches": overall.get("matches", 0),
+                                "top3": overall.get("top3", 0),
+                                "top10": overall.get("top10", 0)
+                            },
+                            "solo": solo,
+                            "duo": duo,
+                            "squad": squad,
+                            "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
+                            "has_kbm": bool(kbm.get("matches", 0) > 0),
+                            "is_private": False
+                        }
+                    except FortniteAPIError as fe:
+                        if fe.status_code == 429 and attempt < 2:
+                            await asyncio.sleep(1.5 * (attempt + 1))
+                            continue
+                        if existing_map.get(ename.lower()) and fe.status_code != 403:
+                            logger.info(f"Preserving cached stats for {ename} due to rate limit/error: {fe}")
+                            cached_res = existing_map[ename.lower()].copy()
+                            cached_res["discord_id"] = did
+                            cached_res["discord_tag"] = discord_tag
+                            return cached_res
+                        is_priv = fe.status_code == 403 or "private" in str(fe).lower()
+                        return {
+                            "discord_id": did,
+                            "discord_tag": discord_tag,
+                            "epic_name": ename,
+                            "account_type": acc_type,
+                            "error": str(fe),
+                            "is_private": is_priv
+                        }
+                    except Exception as err:
+                        if existing_map.get(ename.lower()):
+                            logger.info(f"Preserving cached stats for {ename} due to exception: {err}")
+                            cached_res = existing_map[ename.lower()].copy()
+                            cached_res["discord_id"] = did
+                            cached_res["discord_tag"] = discord_tag
+                            return cached_res
+                        is_priv = "private" in str(err).lower()
+                        return {
+                            "discord_id": did,
+                            "discord_tag": discord_tag,
+                            "epic_name": ename,
+                            "account_type": acc_type,
+                            "error": str(err),
+                            "is_private": is_priv
+                        }
+                    finally:
+                        await asyncio.sleep(0.3)
 
         results = await asyncio.gather(*[fetch_one(p) for p in players])
         now = time.time()

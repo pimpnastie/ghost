@@ -545,35 +545,6 @@ def get_dashboard_html() -> str:
 
     <!-- TAB 1: SQUAD DETAILED STATS -->
     <section id="tab-squad" class="tab-content active">
-      <!-- PERMANENT PRIVACY SETUP INSTRUCTIONS -->
-      <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.85)); border-color: rgba(245, 158, 11, 0.35); margin-bottom: 20px;">
-        <div class="card-title" style="margin-bottom: 10px;">
-          <span style="color: #fbbf24;">🔒 Epic Games Privacy Setup (How to Make Stats Public)</span>
-          <span style="font-size: 0.75rem; background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 8px; border-radius: 12px;">Required by Epic Games</span>
-        </div>
-        <p style="font-size: 0.85rem; color: #fde68a; margin-bottom: 12px; line-height: 1.5;">
-          Epic Games disables public leaderboard statistics by default for all accounts. To display detailed wins, K/D, and match telemetry here:
-        </p>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.82rem;">
-          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
-            <strong style="color: #fff;">1. Launch Fortnite</strong><br>
-            <span style="color: var(--text-muted);">Start the game on your PC, PlayStation, Xbox, or Switch.</span>
-          </div>
-          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
-            <strong style="color: #fff;">2. Open Settings</strong><br>
-            <span style="color: var(--text-muted);">Navigate to <strong>Account and Privacy</strong> tab (far right gear/id icon).</span>
-          </div>
-          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
-            <strong style="color: #fff;">3. Enable Leaderboard</strong><br>
-            <span style="color: var(--text-muted);">Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.</span>
-          </div>
-          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
-            <strong style="color: #fff;">4. Click Re-Check</strong><br>
-            <span style="color: var(--text-muted);">Click <em>🔄 Re-Check</em> on your card below to load stats immediately.</span>
-          </div>
-        </div>
-      </div>
-
       <div class="card">
         <div class="card-title">
           <span>👥 Squad Telemetry & Live Tracker</span>
@@ -1074,7 +1045,7 @@ def get_dashboard_html() -> str:
           const meBadge = isLinkedMe ? '<span title="Your Linked Account" style="background: rgba(88, 101, 242, 0.25); color: #a5b4fc; border: 1px solid #5865F2; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👤 YOU</span>' : '';
           const cardBorder = isLinkedMe ? 'border: 2px solid #5865F2; box-shadow: 0 0 20px rgba(88, 101, 242, 0.35);' : (isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : '');
 
-          if (p.error || p.is_private) {
+          if (p.is_private) {
             return `
               <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
                 <div class="player-header">
@@ -1094,6 +1065,39 @@ def get_dashboard_html() -> str:
                   2. Open <strong>Settings ➔ Account and Privacy</strong>.<br>
                   3. Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.<br>
                   4. Click <em>Re-Check</em> below.
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
+                  <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
+                    📊 FortniteTracker ↗
+                  </a>
+                  <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
+                    <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">🗑️</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          if (p.error) {
+            return `
+              <div class="player-card" style="border-color: rgba(59, 130, 246, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
+                <div class="player-header">
+                  <div class="player-name">
+                    <span>${p.epic_name}</span>
+                    ${platBadge}
+                    ${meBadge}
+                  </div>
+                  <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                    ⏳ Connecting...
+                  </span>
+                </div>
+
+                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #bfdbfe;">
+                  <strong>Fortnite API Notice:</strong><br>
+                  ${p.error}<br>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Please wait a few seconds and click Re-Check.</span>
                 </div>
 
                 <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
