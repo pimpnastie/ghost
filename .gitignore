@@ -1,0 +1,15 @@
+# Environment variables & secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Database
+*.db
+bot_data.db
+
+# Archives
+*.zip
