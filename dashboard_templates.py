@@ -5,7 +5,7 @@ def get_dashboard_html() -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ghost Squad Portal • Fortnite Telemetry & Shop</title>
+  <title>Dadmom Squad Portal • Fortnite Telemetry & Shop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -430,7 +430,7 @@ def get_dashboard_html() -> str:
     <div class="brand">
       <div class="brand-icon">⚡</div>
       <div class="brand-text">
-        <h1>GHOST</h1>
+        <h1>Dadmom</h1>
         <p>Squad Portal</p>
       </div>
     </div>
@@ -678,7 +678,7 @@ def get_dashboard_html() -> str:
           <select id="routeNews">
             <option value="">-- Same as Shop / #fortnite --</option>
           </select>
-          <div class="hint">Where Ghost announces when a squad member wins a match.</div>
+          <div class="hint">Where Dadmom announces when a squad member wins a match.</div>
         </div>
 
         <div style="display: flex; gap: 12px; margin-top: 18px;">
@@ -693,21 +693,8 @@ def get_dashboard_html() -> str:
       <!-- GUIDE: HOW TO REMOVE KITE.ONL / CHANGE PROFILE -->
       <div class="card" style="border-color: rgba(0, 168, 255, 0.35);">
         <div class="card-title">
-          <span>🪁 How to Change Bot Profile & Remove "Powered by Kite.onl"</span>
+          <span>"🪁 Text Box for Instructions"</span>
         </div>
-        <div style="font-size: 0.85rem; line-height: 1.6; color: var(--text);">
-          <p style="margin-bottom: 12px;">
-            The <strong>"🪁 Powered by Kite.onl"</strong> text in your bot's Discord profile is set in the <strong>Discord Developer Portal</strong>, not in the bot's code. You can change or delete it in 30 seconds:
-          </p>
-          <ol style="padding-left: 20px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;">
-            <li>Open the official <a href="https://discord.com/developers/applications" target="_blank" style="color: var(--accent); font-weight: 700; text-decoration: underline;">Discord Developer Portal</a>.</li>
-            <li>Click on your bot application (<strong>Ghost</strong>).</li>
-            <li>Under <strong>General Information</strong>, locate the <strong>DESCRIPTION</strong> field. Delete the Kite link or enter your squad bio.</li>
-            <li>In the left sidebar, click <strong>Bot</strong>. Under <strong>ABOUT ME</strong>, customize or clear any text.</li>
-            <li>Click the green <strong>Save Changes</strong> button at the bottom of the screen.</li>
-          </ol>
-          <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 12px; font-size: 0.8rem; color: #a7f3d0;">
-            ✓ Once saved on Discord, the profile card updates immediately across all servers and user profiles!
           </div>
         </div>
       </div>
