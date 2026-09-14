@@ -1,9 +1,11 @@
 import asyncio
+from datetime import datetime, timezone, timedelta
+import json
 import logging
 import random
 import re
 import time
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any, List
 from aiohttp import web
 import discord
 from discord import app_commands
@@ -78,6 +80,130 @@ class FortniteBot(commands.Bot):
         self._squad_stats_cache = {"timestamp": 0, "data": []}
         self._shop_cache = {"timestamp": 0, "data": None}
         self._map_cache = {"timestamp": 0, "data": None}
+        self._link_codes: Dict[str, Dict[str, Any]] = {}
+
+    def generate_link_code(self, epic_name: str, account_type: str = "epic") -> str:
+        """Generates a unique 3-letter verification code using letters from 'MODA'."""
+        chars = ["M", "O", "D", "A"]
+        now = time.time()
+        # Clean up codes older than 15 minutes (900 seconds)
+        self._link_codes = {k: v for k, v in self._link_codes.items() if (now - v["time"] < 900) and not v.get("claimed")}
+
+        # Try to generate an unused code
+        code = "".join(random.choices(chars, k=3))
+        for _ in range(50):
+            if code not in self._link_codes:
+                break
+            code = "".join(random.choices(chars, k=3))
+
+        self._link_codes[code] = {
+            "code": code,
+            "epic_name": epic_name,
+            "account_type": account_type,
+            "time": now,
+            "claimed": False,
+            "discord_id": None,
+            "discord_tag": None
+        }
+        logger.info(f"Generated MODA link code: {code} for '{epic_name}'")
+        return code
+
+    async def claim_link_code(self, code: str, discord_user: discord.User | discord.Member) -> Optional[Dict[str, Any]]:
+        """Validates and claims a 3-letter MODA verification code from Discord."""
+        code_upper = code.strip().upper()
+        now = time.time()
+        entry = self._link_codes.get(code_upper)
+        if not entry:
+            return None
+        if entry.get("claimed"):
+            return None
+        if now - entry["time"] > 900:
+            return None
+
+        epic_name = entry["epic_name"]
+        acc_type = entry.get("account_type", "epic")
+        await link_user(discord_user.id, epic_name)
+        await track_player(epic_name, account_type=acc_type, discord_user_id=discord_user.id)
+        entry["claimed"] = True
+        entry["discord_id"] = discord_user.id
+        entry["discord_tag"] = str(discord_user)
+
+        # Invalidate squad cache to refresh immediately
+        self._squad_stats_cache["timestamp"] = 0
+        logger.info(f"MODA code {code_upper} claimed by {discord_user} for '{epic_name}'")
+        return entry
+
+    async def refresh_squad_telemetry(self) -> List[Dict[str, Any]]:
+        """Concurrently fetches stats for all tracked squad members and updates persistent cache."""
+        players = await get_all_linked_users_list()
+
+        async def fetch_one(p):
+            ename = p.get("epic_username")
+            did = p.get("discord_user_id")
+            acc_type = p.get("account_type", "epic")
+            discord_tag = None
+            if did:
+                u = self.get_user(int(did))
+                discord_tag = str(u) if u else None
+
+            try:
+                stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime")
+                bp = stats.get("battlePass", {}).get("level", 1)
+                all_stats = stats.get("stats", {}).get("all", {})
+                overall = all_stats.get("overall", {})
+                solo = all_stats.get("solo", {})
+                duo = all_stats.get("duo", {})
+                squad = all_stats.get("squad", {})
+                gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
+                kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
+                return {
+                    "discord_id": did,
+                    "discord_tag": discord_tag,
+                    "epic_name": ename,
+                    "account_type": acc_type,
+                    "bp_level": bp,
+                    "overall": {
+                        "wins": overall.get("wins", 0),
+                        "kills": overall.get("kills", 0),
+                        "kd": overall.get("kd", 0.0),
+                        "winRate": overall.get("winRate", 0.0),
+                        "matches": overall.get("matches", 0),
+                        "top3": overall.get("top3", 0),
+                        "top10": overall.get("top10", 0)
+                    },
+                    "solo": solo,
+                    "duo": duo,
+                    "squad": squad,
+                    "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
+                    "has_kbm": bool(kbm.get("matches", 0) > 0),
+                    "is_private": False
+                }
+            except Exception as err:
+                is_priv = "private" in str(err).lower()
+                return {
+                    "discord_id": did,
+                    "discord_tag": discord_tag,
+                    "epic_name": ename,
+                    "account_type": acc_type,
+                    "error": str(err),
+                    "is_private": is_priv
+                }
+
+        results = await asyncio.gather(*[fetch_one(p) for p in players])
+        now = time.time()
+        edt = timezone(timedelta(hours=-4))
+        last_up = datetime.now(edt).strftime("%I:%M %p EDT")
+        cache_obj = {
+            "timestamp": now,
+            "last_updated_str": last_up,
+            "data": results
+        }
+        self._squad_stats_cache = cache_obj
+        try:
+            await set_bot_state("squad_stats_cache", json.dumps(cache_obj))
+        except Exception as e:
+            logger.debug(f"Could not persist squad stats cache: {e}")
+        return results
 
     async def setup_hook(self):
         logger.info("Initializing database...")
@@ -96,6 +222,15 @@ class FortniteBot(commands.Bot):
 
         # Load and apply initial saved configuration
         initial_cfg = await get_global_config()
+
+        # Restore squad stats cache from MongoDB if available
+        try:
+            cached_squad_str = await get_bot_state("squad_stats_cache")
+            if cached_squad_str:
+                self._squad_stats_cache = json.loads(cached_squad_str)
+                logger.info("Restored squad stats cache from database state.")
+        except Exception as e:
+            logger.debug(f"Could not restore squad stats cache: {e}")
 
         # Start web dashboard and health-check control plane
         try:
@@ -195,70 +330,37 @@ class FortniteBot(commands.Bot):
             async def api_squad_stats(request):
                 force = request.query.get("refresh") == "1"
                 now = time.time()
-                if not force and (now - self._squad_stats_cache["timestamp"] < 60) and self._squad_stats_cache["data"]:
-                    return web.json_response(self._squad_stats_cache["data"])
+                # Return cached data if present and not forced
+                if not force and self._squad_stats_cache.get("data"):
+                    cached_data = self._squad_stats_cache["data"]
+                    last_updated = self._squad_stats_cache.get("last_updated_str", "Active Cache")
+                    return web.json_response({
+                        "squad": cached_data,
+                        "last_updated": last_updated,
+                        "cached": True
+                    })
 
-                players = await get_all_linked_users_list()
-
-                async def fetch_one(p):
-                    ename = p.get("epic_username")
-                    did = p.get("discord_user_id")
-                    acc_type = p.get("account_type", "epic")
-                    try:
-                        stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime")
-                        bp = stats.get("battlePass", {}).get("level", 1)
-                        all_stats = stats.get("stats", {}).get("all", {})
-                        overall = all_stats.get("overall", {})
-                        solo = all_stats.get("solo", {})
-                        duo = all_stats.get("duo", {})
-                        squad = all_stats.get("squad", {})
-                        gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
-                        kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
-                        return {
-                            "discord_id": did,
-                            "epic_name": ename,
-                            "account_type": acc_type,
-                            "bp_level": bp,
-                            "overall": {
-                                "wins": overall.get("wins", 0),
-                                "kills": overall.get("kills", 0),
-                                "kd": overall.get("kd", 0.0),
-                                "winRate": overall.get("winRate", 0.0),
-                                "matches": overall.get("matches", 0),
-                                "top3": overall.get("top3", 0),
-                                "top10": overall.get("top10", 0)
-                            },
-                            "solo": solo,
-                            "duo": duo,
-                            "squad": squad,
-                            "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
-                            "has_kbm": bool(kbm.get("matches", 0) > 0),
-                            "is_private": False
-                        }
-                    except Exception as err:
-                        is_priv = "private" in str(err).lower()
-                        return {
-                            "discord_id": did,
-                            "epic_name": ename,
-                            "account_type": acc_type,
-                            "error": str(err),
-                            "is_private": is_priv
-                        }
-
-                results = await asyncio.gather(*[fetch_one(p) for p in players])
-                self._squad_stats_cache = {"timestamp": now, "data": results}
-                return web.json_response(results)
+                # Refresh live via parallel fetch
+                results = await self.refresh_squad_telemetry()
+                last_updated = self._squad_stats_cache.get("last_updated_str", "Just now")
+                return web.json_response({
+                    "squad": results,
+                    "last_updated": last_updated,
+                    "cached": False
+                })
 
             async def api_live_shop(request):
                 force = request.query.get("refresh") == "1"
                 now = time.time()
-                if not force and (now - self._shop_cache["timestamp"] < 600) and self._shop_cache["data"]:
+                if not force and (now - self._shop_cache["timestamp"] < 3600) and self._shop_cache["data"]:
                     return web.json_response(self._shop_cache["data"])
 
                 try:
                     shop_data = await self.fortnite.get_shop()
                     entries = shop_data.get("entries", [])
                     parsed_items = []
+                    shop_date_str = str(shop_data.get("date", ""))[:10]
+
                     for e in entries:
                         br = e.get("brItems") or []
                         tracks = e.get("tracks") or []
@@ -303,6 +405,11 @@ class FortniteBot(commands.Bot):
                         if not name or "tbd" in name.lower() or "placeholder" in name.lower():
                             continue
 
+                        banner = e.get("banner") or {}
+                        banner_val = str(banner.get("value", "")).strip() if isinstance(banner, dict) else ""
+                        in_date = str(e.get("inDate", ""))[:10]
+                        is_new = (banner_val.lower() == "new") or (in_date == shop_date_str)
+
                         rarity_clean = rarity.lower().replace(" ", "").replace("_", "")
 
                         parsed_items.append({
@@ -313,19 +420,54 @@ class FortniteBot(commands.Bot):
                             "rarity_clean": rarity_clean,
                             "icon": icon,
                             "item_type": item_type,
-                            "category": cat or item_type
+                            "category": cat or item_type,
+                            "is_new": is_new,
+                            "banner": banner_val
                         })
 
                     resp_data = {
                         "date": shop_data.get("date", ""),
                         "hash": shop_data.get("hash", ""),
                         "total": len(parsed_items),
+                        "new_total": len([i for i in parsed_items if i.get("is_new")]),
                         "items": parsed_items
                     }
                     self._shop_cache = {"timestamp": now, "data": resp_data}
                     return web.json_response(resp_data)
                 except Exception as e:
                     return web.json_response({"error": str(e)}, status=500)
+
+            async def api_link_code_generate(request):
+                try:
+                    data = await request.json()
+                    epic_name = str(data.get("epic_name", "")).strip()
+                    acc_type = str(data.get("account_type", "epic")).strip().lower()
+                    if not epic_name:
+                        return web.json_response({"status": "error", "message": "Missing epic_name"}, status=400)
+                    code = self.generate_link_code(epic_name, acc_type)
+                    return web.json_response({
+                        "status": "success",
+                        "code": code,
+                        "epic_name": epic_name,
+                        "account_type": acc_type,
+                        "expires_in_seconds": 900
+                    })
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_link_code_status(request):
+                code = str(request.query.get("code", "")).strip().upper()
+                entry = self._link_codes.get(code)
+                if not entry:
+                    return web.json_response({"status": "not_found", "claimed": False}, status=404)
+                return web.json_response({
+                    "status": "success",
+                    "code": code,
+                    "claimed": bool(entry.get("claimed")),
+                    "discord_id": entry.get("discord_id"),
+                    "discord_tag": entry.get("discord_tag"),
+                    "epic_name": entry.get("epic_name")
+                })
 
             async def api_live_map(request):
                 try:
@@ -498,6 +640,8 @@ class FortniteBot(commands.Bot):
             app.router.add_post("/api/drop/broadcast", api_drop_broadcast)
             app.router.add_get("/api/live-news", api_live_news)
             app.router.add_get("/api/backup/export", api_backup_export)
+            app.router.add_post("/api/link-code/generate", api_link_code_generate)
+            app.router.add_get("/api/link-code/status", api_link_code_status)
 
             self._web_runner = web.AppRunner(app)
             await self._web_runner.setup()
@@ -506,6 +650,9 @@ class FortniteBot(commands.Bot):
             logger.info(f"Dashboard control plane online at port {PORT}")
         except Exception as e:
             logger.warning(f"Could not start dashboard web server: {e}")
+
+        logger.info("Starting scheduled squad sync loop (7:00 PM & 10:00 PM EDT)...")
+        self.scheduled_sync_loop.start()
 
         logger.info("Starting shop monitoring background task...")
         self.check_shop_loop.start()
@@ -612,8 +759,26 @@ class FortniteBot(commands.Bot):
         self.check_shop_loop.cancel()
         self.check_news_loop.cancel()
         self.check_wins_loop.cancel()
+        self.scheduled_sync_loop.cancel()
         await self.fortnite.close()
         await super().close()
+
+    @tasks.loop(minutes=1)
+    async def scheduled_sync_loop(self):
+        """Performs scheduled squad stats cache refresh at 7:00 PM and 10:00 PM EDT."""
+        try:
+            edt = timezone(timedelta(hours=-4))
+            now_edt = datetime.now(edt)
+            # Fire at 19:00 (7 PM) and 22:00 (10 PM) EDT at minute 0
+            if now_edt.hour in (19, 22) and now_edt.minute == 0:
+                logger.info(f"Triggering scheduled squad telemetry refresh at {now_edt.strftime('%I:%M %p EDT')}...")
+                await self.refresh_squad_telemetry()
+        except Exception as e:
+            logger.error(f"Error in scheduled_sync_loop: {e}")
+
+    @scheduled_sync_loop.before_loop
+    async def before_scheduled_sync_loop(self):
+        await self.wait_until_ready()
 
     @tasks.loop(minutes=15)
     async def check_news_loop(self):
@@ -648,6 +813,12 @@ class FortniteBot(commands.Bot):
     async def check_wins_loop(self):
         """Monitors linked squad members and announces new Victory Royales in Discord."""
         try:
+            edt = timezone(timedelta(hours=-4))
+            now_edt = datetime.now(edt)
+            # Only poll during evening gaming window (6:00 PM - 1:00 AM EDT)
+            if not (18 <= now_edt.hour <= 23 or now_edt.hour == 0):
+                return
+
             players = await get_all_linked_users_list()
             for p in players:
                 did = p.get("discord_user_id")
@@ -808,32 +979,111 @@ def extract_mention_id(text: str) -> Optional[int]:
 # Slash Commands
 # ==============================================================================
 
-@bot.tree.command(name="link", description="Link your Discord account to your Epic Games username")
-@app_commands.describe(epic_username="Your exact Epic Games display name")
+@bot.tree.command(name="link", description="Link your Discord account to your Epic Games username or 3-digit website code")
+@app_commands.describe(epic_username="Your exact Epic Games display name OR 3-digit code from website (e.g. MOD)")
 async def link_cmd(interaction: discord.Interaction, epic_username: str):
     await interaction.response.defer(thinking=True)
-    epic_username = epic_username.strip()
+    clean_val = epic_username.strip()
 
-    # Verify if the username exists
+    # Check if this is a 3-letter MODA verification code from the website
+    if len(clean_val) == 3 and all(c.upper() in "MODA" for c in clean_val):
+        claim = await bot.claim_link_code(clean_val, interaction.user)
+        if claim:
+            target_epic = claim["epic_name"]
+            acc_type = claim.get("account_type", "epic").upper()
+            embed = discord.Embed(
+                title="🔗 Website Profile Linked Successfully!",
+                description=(
+                    f"Verified 3-digit website code **`{clean_val.upper()}`**!\n\n"
+                    f"Linked {interaction.user.mention} to Epic profile: **`{target_epic}`** ({acc_type})\n\n"
+                    f"• Your online website profile is now permanently linked.\n"
+                    f"• You can now use `/stats` without typing your name.\n"
+                    f"• You will automatically appear on squad rankings and victory announcements!"
+                ),
+                color=COLOR_SUCCESS
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+    # Regular Epic Games username linking
     try:
-        await bot.fortnite.get_player_stats(name=epic_username)
+        await bot.fortnite.get_player_stats(name=clean_val)
     except FortniteAPIError as e:
         if e.status_code == 404:
-            # Note: Sometimes stats are private, but user still wants to link
             pass
 
-    await link_user(interaction.user.id, epic_username)
+    await link_user(interaction.user.id, clean_val)
+    await track_player(clean_val, account_type="epic", discord_user_id=interaction.user.id)
 
     embed = discord.Embed(
         title="🔗 Account Linked Successfully!",
         description=(
-            f"Linked {interaction.user.mention} to Epic Games account: **`{epic_username}`**\n\n"
+            f"Linked {interaction.user.mention} to Epic Games account: **`{clean_val}`**\n\n"
             f"• You can now use `/stats` without typing your name.\n"
             f"• You will automatically appear on server `/leaderboard` rankings!"
         ),
         color=COLOR_SUCCESS
     )
     await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="verify", description="Verify and link your Discord account using the 3-letter code from the website")
+@app_commands.describe(code="The 3-letter code from the website (e.g. MOD)")
+async def verify_cmd(interaction: discord.Interaction, code: str):
+    await interaction.response.defer(thinking=True)
+    clean_code = code.strip().upper()
+    claim = await bot.claim_link_code(clean_code, interaction.user)
+    if claim:
+        target_epic = claim["epic_name"]
+        acc_type = claim.get("account_type", "epic").upper()
+        embed = discord.Embed(
+            title="🔗 Website Profile Linked Successfully!",
+            description=(
+                f"Verified website code **`{clean_code}`**!\n\n"
+                f"Linked {interaction.user.mention} to Epic profile: **`{target_epic}`** ({acc_type})\n\n"
+                f"• Your online website profile is now permanently linked.\n"
+                f"• You can now use `/stats` without typing your name.\n"
+                f"• You will automatically appear on squad rankings and victory announcements!"
+            ),
+            color=COLOR_SUCCESS
+        )
+    else:
+        embed = discord.Embed(
+            title="❌ Invalid or Expired Code",
+            description=(
+                f"Code **`{clean_code}`** was not found or has expired (15-minute expiration).\n\n"
+                f"Please open the website dashboard, click **Link Discord**, and generate a new 3-letter code."
+            ),
+            color=COLOR_ERROR
+        )
+    await interaction.followup.send(embed=embed)
+
+
+@bot.command(name="link")
+async def prefix_link(ctx: commands.Context, *, code_or_name: str):
+    clean_val = code_or_name.strip()
+    if len(clean_val) == 3 and all(c.upper() in "MODA" for c in clean_val):
+        claim = await bot.claim_link_code(clean_val, ctx.author)
+        if claim:
+            target_epic = claim["epic_name"]
+            acc_type = claim.get("account_type", "epic").upper()
+            await ctx.reply(f"🔗 **Linked!** Verified code `{clean_val.upper()}`. Linked {ctx.author.mention} to **`{target_epic}`** ({acc_type})!")
+            return
+    await link_user(ctx.author.id, clean_val)
+    await track_player(clean_val, account_type="epic", discord_user_id=ctx.author.id)
+    await ctx.reply(f"🔗 **Linked!** Linked {ctx.author.mention} to Epic Games account: **`{clean_val}`**.")
+
+
+@bot.command(name="verify")
+async def prefix_verify(ctx: commands.Context, code: str):
+    clean_code = code.strip().upper()
+    claim = await bot.claim_link_code(clean_code, ctx.author)
+    if claim:
+        target_epic = claim["epic_name"]
+        acc_type = claim.get("account_type", "epic").upper()
+        await ctx.reply(f"🔗 **Linked!** Verified code `{clean_code}`. Linked {ctx.author.mention} to **`{target_epic}`** ({acc_type})!")
+    else:
+        await ctx.reply(f"❌ **Code `{clean_code}` is invalid or expired.** Generate a new 3-letter code on the website.")
 
 
 @bot.tree.command(name="unlink", description="Unlink your Epic Games account from Discord")

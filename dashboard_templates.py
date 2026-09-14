@@ -416,6 +416,79 @@ def get_dashboard_html() -> str:
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-box {
+      background: #0f172a;
+      border: 1px solid rgba(88, 101, 242, 0.4);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(88, 101, 242, 0.2);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      position: relative;
+    }
+    .code-display {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .code-letter {
+      width: 60px;
+      height: 70px;
+      background: rgba(88, 101, 242, 0.15);
+      border: 2px solid #5865F2;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(88, 101, 242, 0.4);
+      letter-spacing: 2px;
+    }
+    .cache-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .item-new-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: linear-gradient(135deg, #f59e0b, #ec4899);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      z-index: 3;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      letter-spacing: 0.5px;
+    }
+
     @media (max-width: 768px) {
       body { flex-direction: column; }
       aside { width: 100%; }
@@ -457,18 +530,60 @@ def get_dashboard_html() -> str:
         <h2 id="pageTitle">Squad Telemetry & Detailed Stats</h2>
         <p>Live Fortnite game data tailored for your squad</p>
       </div>
-      <div class="auth-badge">
-        <div class="status-dot"></div>
-        <span id="gatewayStatus">Connected (Render 24/7)</span>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <div id="discordLinkStatusBox">
+          <button class="btn btn-secondary" style="background: rgba(88, 101, 242, 0.2); border: 1px solid rgba(88, 101, 242, 0.4); color: #a5b4fc; font-size: 0.8rem; padding: 6px 12px; display: flex; align-items: center; gap: 6px;" onclick="openDiscordLinkModal()">
+            <span>🔗</span> Link Discord
+          </button>
+        </div>
+        <div class="auth-badge">
+          <div class="status-dot"></div>
+          <span id="gatewayStatus">Connected (Render 24/7)</span>
+        </div>
       </div>
     </header>
 
     <!-- TAB 1: SQUAD DETAILED STATS -->
     <section id="tab-squad" class="tab-content active">
+      <!-- PERMANENT PRIVACY SETUP INSTRUCTIONS -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.85)); border-color: rgba(245, 158, 11, 0.35); margin-bottom: 20px;">
+        <div class="card-title" style="margin-bottom: 10px;">
+          <span style="color: #fbbf24;">🔒 Epic Games Privacy Setup (How to Make Stats Public)</span>
+          <span style="font-size: 0.75rem; background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 8px; border-radius: 12px;">Required by Epic Games</span>
+        </div>
+        <p style="font-size: 0.85rem; color: #fde68a; margin-bottom: 12px; line-height: 1.5;">
+          Epic Games disables public leaderboard statistics by default for all accounts. To display detailed wins, K/D, and match telemetry here:
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.82rem;">
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
+            <strong style="color: #fff;">1. Launch Fortnite</strong><br>
+            <span style="color: var(--text-muted);">Start the game on your PC, PlayStation, Xbox, or Switch.</span>
+          </div>
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
+            <strong style="color: #fff;">2. Open Settings</strong><br>
+            <span style="color: var(--text-muted);">Navigate to <strong>Account and Privacy</strong> tab (far right gear/id icon).</span>
+          </div>
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
+            <strong style="color: #fff;">3. Enable Leaderboard</strong><br>
+            <span style="color: var(--text-muted);">Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.</span>
+          </div>
+          <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 12px;">
+            <strong style="color: #fff;">4. Click Re-Check</strong><br>
+            <span style="color: var(--text-muted);">Click <em>🔄 Re-Check</em> on your card below to load stats immediately.</span>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">
-          <span>👥 Squad Telemetry & Live Tracker (5-10 Members)</span>
-          <button class="btn btn-secondary" onclick="loadSquadStats()">🔄 Refresh Stats</button>
+          <span>👥 Squad Telemetry & Live Tracker</span>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div class="cache-pill" title="Stats auto-sync at fixed squad gaming hours">
+              <span>🕒 Auto-syncs at 7:00 PM & 10:00 PM EDT</span>
+              <span id="squadCacheStatus" style="color: var(--text); font-weight: 700; margin-left: 4px;">• Cached</span>
+            </div>
+            <button class="btn btn-secondary" onclick="loadSquadStats(true)">🔄 Force Live Sync</button>
+          </div>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
           Track your squad members directly from this dashboard. Stats update live from Epic Games.
@@ -531,8 +646,9 @@ def get_dashboard_html() -> str:
             <div style="font-size: 0.8rem; color: var(--text-muted);" id="shopCountBadge">Loading items...</div>
           </div>
 
-          <!-- Category Pills -->
-          <div class="filter-pills" id="shopCategoryPills">
+          <!-- Category Pills & New Items Filter -->
+          <div class="filter-pills" id="shopCategoryPills" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+            <button class="filter-pill" id="pillNewOnly" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24;" onclick="toggleNewItemsFilter(this)">✨ New Items Only (<span id="newItemsBadge">0</span>)</button>
             <button class="filter-pill active" onclick="setShopCategory('all', this)">All Items</button>
             <button class="filter-pill" onclick="setShopCategory('outfit', this)">👕 Outfits / Skins</button>
             <button class="filter-pill" onclick="setShopCategory('pickaxe', this)">⛏️ Pickaxes</button>
@@ -735,6 +851,73 @@ def get_dashboard_html() -> str:
 
   </main>
 
+  <!-- DISCORD LINK MODA CODE MODAL -->
+  <div id="discordLinkModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span style="color: #5865F2;">🔗</span> Link Discord Profile
+        </h3>
+        <button onclick="closeDiscordLinkModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5;">
+        Generate a 3-character verification code made of letters <strong>M - O - D - A</strong>. Enter it in Discord to instantly link your Discord account to your squad stats on this website!
+      </p>
+
+      <div id="modalGenerateStep">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label>Fortnite / Epic Username</label>
+          <input type="text" id="modalEpicInput" placeholder="e.g. p_lmpNastie, Going__Ghost, KING_CONDOR_">
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label>Platform</label>
+          <select id="modalPlatformSelect">
+            <option value="epic">⚡ Epic Games</option>
+            <option value="psn">🎮 PlayStation (PSN)</option>
+            <option value="xbl">💚 Xbox (XBL)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;" onclick="requestLinkCode()">
+          ⚡ Generate 3-Digit MODA Code
+        </button>
+      </div>
+
+      <div id="modalCodeDisplayStep" style="display: none; text-align: center;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Your 3-Letter Verification Code:</div>
+        
+        <div class="code-display" id="modalCodeBoxes">
+          <div class="code-letter" id="letter1">-</div>
+          <div class="code-letter" id="letter2">-</div>
+          <div class="code-letter" id="letter3">-</div>
+        </div>
+
+        <div style="background: rgba(88, 101, 242, 0.1); border: 1px solid rgba(88, 101, 242, 0.3); border-radius: 12px; padding: 14px; text-align: left; font-size: 0.85rem; line-height: 1.6; margin-bottom: 16px;">
+          <div style="font-weight: 800; color: #a5b4fc; margin-bottom: 6px;">How to redeem in Discord:</div>
+          <div>1. Open your Discord server with Ghost.</div>
+          <div>2. Run slash command: <strong style="color: #fff; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">/verify code: <span id="instructionCode">MOD</span></strong></div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Or simply type in any channel: <code style="color: #fff;">!verify <span id="instructionCode2">MOD</span></code> or <code style="color: #fff;">/link <span id="instructionCode3">MOD</span></code></div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.8rem; color: #38bdf8; margin-bottom: 12px;">
+          <div class="status-dot" style="background: #38bdf8;"></div>
+          <span>Waiting for Discord verification... (auto-detecting)</span>
+        </div>
+
+        <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 14px;" onclick="cancelLinkPolling()">Cancel</button>
+      </div>
+
+      <div id="modalSuccessStep" style="display: none; text-align: center; padding: 10px 0;">
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">🎉</div>
+        <h4 style="font-size: 1.1rem; color: var(--success); margin-bottom: 8px; font-weight: 800;">Account Linked Successfully!</h4>
+        <p id="modalSuccessMsg" style="font-size: 0.85rem; color: var(--text); margin-bottom: 16px;"></p>
+        <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="closeDiscordLinkModal()">
+          ✓ Done
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast">Settings updated successfully!</div>
 
   <script>
@@ -831,16 +1014,28 @@ def get_dashboard_html() -> str:
       });
     }
 
-    async function loadSquadStats() {
+    async function loadSquadStats(force = false) {
       const container = document.getElementById('squadContainer');
       container.innerHTML = '<p style="color: var(--text-muted);">Fetching detailed squad telemetry...</p>';
       try {
-        const res = await fetch('/api/squad-stats');
-        const squad = await res.json();
+        const url = force ? '/api/squad-stats?refresh=1' : '/api/squad-stats';
+        const res = await fetch(url);
+        const resData = await res.json();
+        const squad = Array.isArray(resData) ? resData : (resData.squad || []);
+        const lastUpdated = resData.last_updated || 'Cached';
+        const statusElem = document.getElementById('squadCacheStatus');
+        if (statusElem) statusElem.innerText = '• ' + lastUpdated;
+
         if (!Array.isArray(squad) || squad.length === 0) {
           container.innerHTML = '<div style="grid-column: 1/-1; padding: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p style="font-size: 1.1rem; margin-bottom: 8px;">No squad members tracked yet!</p><p style="color: var(--text-muted);">Enter an Epic, PlayStation, or Xbox username above to start tracking stats.</p></div>';
           return;
         }
+
+        // Check locally linked user to highlight
+        let linkedUser = null;
+        try {
+          linkedUser = JSON.parse(localStorage.getItem('ghost_linked_player') || 'null');
+        } catch (e) {}
 
         // Sort by overall wins descending so squad leaderboard ranks top to bottom
         squad.sort((a, b) => ((b.overall?.wins || 0) - (a.overall?.wins || 0)));
@@ -871,14 +1066,22 @@ def get_dashboard_html() -> str:
           }
 
           const isMvp = (p.epic_name === mvpPlayer && maxWins > 0);
+          const isLinkedMe = Boolean(linkedUser && (
+            (linkedUser.epic_name && linkedUser.epic_name.toLowerCase() === p.epic_name.toLowerCase()) ||
+            (linkedUser.discord_id && String(linkedUser.discord_id) === String(p.discord_id))
+          ));
 
-          if (p.error) {
+          const meBadge = isLinkedMe ? '<span title="Your Linked Account" style="background: rgba(88, 101, 242, 0.25); color: #a5b4fc; border: 1px solid #5865F2; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👤 YOU</span>' : '';
+          const cardBorder = isLinkedMe ? 'border: 2px solid #5865F2; box-shadow: 0 0 20px rgba(88, 101, 242, 0.35);' : (isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : '');
+
+          if (p.error || p.is_private) {
             return `
-              <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7);">
+              <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
                 <div class="player-header">
                   <div class="player-name">
                     <span>${p.epic_name}</span>
                     ${platBadge}
+                    ${meBadge}
                   </div>
                   <span style="background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
                     🔒 Stats Private
@@ -898,7 +1101,7 @@ def get_dashboard_html() -> str:
                     📊 FortniteTracker ↗
                   </a>
                   <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats()">🔄 Re-Check</button>
+                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
                     <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">🗑️</button>
                   </div>
                 </div>
@@ -908,12 +1111,13 @@ def get_dashboard_html() -> str:
 
           const o = p.overall || {};
           return `
-            <div class="player-card" style="${isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : ''}">
+            <div class="player-card" style="${cardBorder}">
               <div class="player-header">
                 <div class="player-name">
                   <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 800;">#${idx + 1}</span>
                   <span>🏆 ${p.epic_name}</span>
                   ${platBadge}
+                  ${meBadge}
                   ${isMvp ? '<span title="Highest Wins in Squad" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); border: 1px solid rgba(255, 215, 0, 0.4); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👑 MVP</span>' : ''}
                 </div>
                 <span class="player-bp">BP Lvl ${p.bp_level}</span>
@@ -965,9 +1169,12 @@ def get_dashboard_html() -> str:
                 <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
                   📊 FortniteTracker ↗
                 </a>
-                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">
-                  🗑️ Untrack
-                </button>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
+                  <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">
+                    🗑️
+                  </button>
+                </div>
               </div>
             </div>
           `;
@@ -979,6 +1186,7 @@ def get_dashboard_html() -> str:
 
     let rawShopItems = [];
     let currentShopCategory = 'all';
+    let filterNewOnly = false;
 
     async function loadLiveShop() {
       const container = document.getElementById('shopContainer');
@@ -990,7 +1198,10 @@ def get_dashboard_html() -> str:
 
         const dateStr = data.date ? data.date.slice(0, 10) : 'Today';
         const hashStr = data.hash ? data.hash.slice(0, 10) : 'Latest';
-        document.getElementById('shopMetaDate').innerText = `Date: ${dateStr} • Hash: ${hashStr} • Total Items in Catalog: ${rawShopItems.length}`;
+        const newCount = data.new_total || rawShopItems.filter(i => i.is_new).length;
+        document.getElementById('shopMetaDate').innerText = `Date: ${dateStr} • Hash: ${hashStr} • Total Items: ${rawShopItems.length} (${newCount} new today)`;
+        const badgeElem = document.getElementById('newItemsBadge');
+        if (badgeElem) badgeElem.innerText = newCount;
 
         filterShopItems();
       } catch (e) {
@@ -998,10 +1209,24 @@ def get_dashboard_html() -> str:
       }
     }
 
+    function toggleNewItemsFilter(btn) {
+      filterNewOnly = !filterNewOnly;
+      if (filterNewOnly) {
+        btn.classList.add('active');
+        btn.style.background = 'rgba(245, 158, 11, 0.4)';
+      } else {
+        btn.classList.remove('active');
+        btn.style.background = 'rgba(245, 158, 11, 0.15)';
+      }
+      filterShopItems();
+    }
+
     function setShopCategory(cat, btn) {
       currentShopCategory = cat.toLowerCase();
-      document.querySelectorAll('#shopCategoryPills .filter-pill').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
+      document.querySelectorAll('#shopCategoryPills .filter-pill').forEach(b => {
+        if (b.id !== 'pillNewOnly') b.classList.remove('active');
+      });
+      if (btn && btn.id !== 'pillNewOnly') btn.classList.add('active');
       filterShopItems();
     }
 
@@ -1010,6 +1235,9 @@ def get_dashboard_html() -> str:
       const sortMode = document.getElementById('shopSortSelect').value;
 
       let filtered = rawShopItems.filter(item => {
+        // New items only toggle
+        if (filterNewOnly && !item.is_new) return false;
+
         // Category check
         if (currentShopCategory !== 'all') {
           const it = (item.item_type || '').toLowerCase();
@@ -1065,6 +1293,7 @@ def get_dashboard_html() -> str:
         const rarityClass = 'rarity-' + (item.rarity_clean || 'common');
         return `
           <div class="shop-item-card ${rarityClass}">
+            ${item.is_new ? '<span class="item-new-badge">✨ NEW</span>' : ''}
             <span class="item-type-badge">${item.item_type || 'Cosmetic'}</span>
             ${item.icon ? `<img class="shop-img" src="${item.icon}" loading="lazy" alt="${item.name}">` : '<div style="height: 110px; display:flex; align-items:center; justify-content:center; font-size:2rem;">🎁</div>'}
             <div class="shop-name" title="${item.name}">${item.name}</div>
@@ -1379,8 +1608,145 @@ def get_dashboard_html() -> str:
       showToast('Status updated on Discord! 🎮');
     }
 
+    let linkPollInterval = null;
+
+    function initDiscordLinkUI() {
+      const box = document.getElementById('discordLinkStatusBox');
+      if (!box) return;
+      let linked = null;
+      try {
+        linked = JSON.parse(localStorage.getItem('ghost_linked_player') || 'null');
+      } catch (e) {}
+
+      if (linked && linked.discord_tag) {
+        box.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(88, 101, 242, 0.15); border: 1px solid rgba(88, 101, 242, 0.4); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem;">
+            <span style="color: #a5b4fc; font-weight: 700;">👤 ${linked.discord_tag}</span>
+            <span style="color: var(--text-muted); font-size: 0.75rem;">(${linked.epic_name})</span>
+            <button onclick="unlinkDiscordLocal()" style="background: transparent; border: none; color: var(--error); cursor: pointer; font-size: 0.8rem; margin-left: 4px;" title="Unlink profile">✕</button>
+          </div>
+        `;
+      } else {
+        box.innerHTML = `
+          <button class="btn btn-secondary" style="background: rgba(88, 101, 242, 0.2); border: 1px solid rgba(88, 101, 242, 0.4); color: #a5b4fc; font-size: 0.8rem; padding: 6px 12px; display: flex; align-items: center; gap: 6px;" onclick="openDiscordLinkModal()">
+            <span>🔗</span> Link Discord
+          </button>
+        `;
+      }
+    }
+
+    function openDiscordLinkModal() {
+      const modal = document.getElementById('discordLinkModal');
+      modal.classList.add('open');
+      document.getElementById('modalGenerateStep').style.display = 'block';
+      document.getElementById('modalCodeDisplayStep').style.display = 'none';
+      document.getElementById('modalSuccessStep').style.display = 'none';
+      
+      const epicInput = document.getElementById('modalEpicInput');
+      let linked = null;
+      try {
+        linked = JSON.parse(localStorage.getItem('ghost_linked_player') || 'null');
+      } catch (e) {}
+      if (linked && linked.epic_name) {
+        epicInput.value = linked.epic_name;
+      }
+    }
+
+    function closeDiscordLinkModal() {
+      const modal = document.getElementById('discordLinkModal');
+      modal.classList.remove('open');
+      cancelLinkPolling();
+    }
+
+    function cancelLinkPolling() {
+      if (linkPollInterval) {
+        clearInterval(linkPollInterval);
+        linkPollInterval = null;
+      }
+      document.getElementById('modalGenerateStep').style.display = 'block';
+      document.getElementById('modalCodeDisplayStep').style.display = 'none';
+    }
+
+    async function requestLinkCode() {
+      const epicName = (document.getElementById('modalEpicInput').value || '').trim();
+      const accountType = document.getElementById('modalPlatformSelect').value;
+      if (!epicName) {
+        showToast('Please enter your Epic Games or platform username');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/link-code/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ epic_name: epicName, account_type: accountType })
+        });
+        const data = await res.json();
+        if (data.status !== 'success') {
+          showToast(data.message || 'Error generating link code');
+          return;
+        }
+
+        const code = data.code;
+        document.getElementById('letter1').innerText = code[0] || 'M';
+        document.getElementById('letter2').innerText = code[1] || 'O';
+        document.getElementById('letter3').innerText = code[2] || 'D';
+        document.getElementById('instructionCode').innerText = code;
+        document.getElementById('instructionCode2').innerText = code;
+        document.getElementById('instructionCode3').innerText = code;
+
+        document.getElementById('modalGenerateStep').style.display = 'none';
+        document.getElementById('modalCodeDisplayStep').style.display = 'block';
+
+        // Poll for claim status every 2 seconds
+        if (linkPollInterval) clearInterval(linkPollInterval);
+        linkPollInterval = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/link-code/status?code=${code}`);
+            const pollData = await pollRes.json();
+            if (pollData.claimed) {
+              clearInterval(linkPollInterval);
+              linkPollInterval = null;
+              
+              const linkObj = {
+                discord_id: pollData.discord_id,
+                discord_tag: pollData.discord_tag,
+                epic_name: pollData.epic_name || epicName,
+                account_type: accountType,
+                linked_at: new Date().toISOString()
+              };
+              localStorage.setItem('ghost_linked_player', JSON.stringify(linkObj));
+              
+              document.getElementById('modalCodeDisplayStep').style.display = 'none';
+              document.getElementById('modalSuccessStep').style.display = 'block';
+              document.getElementById('modalSuccessMsg').innerText = `Linked to @${pollData.discord_tag} for player '${pollData.epic_name || epicName}'!`;
+              
+              initDiscordLinkUI();
+              loadSquadStats(true);
+              showToast(`Linked to @${pollData.discord_tag}!`);
+            }
+          } catch (err) {
+            console.error('Polling error:', err);
+          }
+        }, 2000);
+
+      } catch (err) {
+        showToast('Failed to connect to server: ' + err);
+      }
+    }
+
+    function unlinkDiscordLocal() {
+      if (confirm('Disconnect your Discord link on this browser?')) {
+        localStorage.removeItem('ghost_linked_player');
+        initDiscordLinkUI();
+        loadSquadStats();
+        showToast('Discord link disconnected.');
+      }
+    }
+
     window.onload = () => {
       document.getElementById('adminPin').value = localStorage.getItem('ghost_pin') || 'ghost123';
+      initDiscordLinkUI();
       loadSquadStats();
     };
   </script>
