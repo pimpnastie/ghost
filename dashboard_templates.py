@@ -1138,23 +1138,26 @@ def get_dashboard_html() -> str:
     function renderCustomPois() {
       const listDiv = document.getElementById('customPoisList');
       if (!customPois || customPois.length === 0) {
-        listDiv.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No custom drop spots saved yet. Add your squad\'s secret spots above!</p>';
+        listDiv.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No custom drop spots saved yet. Add your squad secret spots above!</p>';
         return;
       }
-      listDiv.innerHTML = customPois.map(p => `
-        <div class="custom-poi-chip">
-          <span style="cursor: pointer;" onclick="selectDropSpot('${p.name.replace(/'/g, "\\'")}')" title="Select as drop target">
-            📍 <strong>${p.name}</strong> ${p.note ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(${p.note})</span>` : ''}
-          </span>
-          <button style="background: transparent; border: none; color: var(--error); cursor: pointer; font-size: 0.85rem; padding: 0 4px;" onclick="deleteCustomPoi('${p.name.replace(/'/g, "\\'")}')" title="Delete custom spot">✕</button>
-        </div>
-      `).join('');
+      listDiv.innerHTML = customPois.map(p => {
+        const safeName = encodeURIComponent(p.name);
+        return `
+          <div class="custom-poi-chip">
+            <span style="cursor: pointer;" data-name="${safeName}" onclick="selectDropSpot(decodeURIComponent(this.dataset.name))" title="Select as drop target">
+              📍 <strong>${p.name}</strong> ${p.note ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(${p.note})</span>` : ''}
+            </span>
+            <button style="background: transparent; border: none; color: var(--error); cursor: pointer; font-size: 0.85rem; padding: 0 4px;" data-name="${safeName}" onclick="deleteCustomPoi(decodeURIComponent(this.dataset.name))" title="Delete custom spot">✕</button>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderOfficialPois(list) {
       const poisDiv = document.getElementById('poisContainer');
       poisDiv.innerHTML = list.map(p => `
-        <button class="filter-pill" onclick="selectDropSpot('${p.name.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+        <button class="filter-pill" data-name="${encodeURIComponent(p.name)}" onclick="selectDropSpot(decodeURIComponent(this.dataset.name))" style="cursor: pointer;">
           📍 ${p.name}
         </button>
       `).join('');

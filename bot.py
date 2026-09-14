@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 import re
+import time
 from typing import Optional, Literal
 from aiohttp import web
 import discord
@@ -74,6 +75,9 @@ class FortniteBot(commands.Bot):
         )
         self.fortnite = FortniteClient()
         self._web_runner = None
+        self._squad_stats_cache = {"timestamp": 0, "data": []}
+        self._shop_cache = {"timestamp": 0, "data": None}
+        self._map_cache = {"timestamp": 0, "data": None}
 
     async def setup_hook(self):
         logger.info("Initializing database...")
@@ -189,9 +193,14 @@ class FortniteBot(commands.Bot):
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
 
             async def api_squad_stats(request):
+                force = request.query.get("refresh") == "1"
+                now = time.time()
+                if not force and (now - self._squad_stats_cache["timestamp"] < 60) and self._squad_stats_cache["data"]:
+                    return web.json_response(self._squad_stats_cache["data"])
+
                 players = await get_all_linked_users_list()
-                results = []
-                for p in players:
+
+                async def fetch_one(p):
                     ename = p.get("epic_username")
                     did = p.get("discord_user_id")
                     acc_type = p.get("account_type", "epic")
@@ -205,7 +214,7 @@ class FortniteBot(commands.Bot):
                         squad = all_stats.get("squad", {})
                         gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
                         kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
-                        results.append({
+                        return {
                             "discord_id": did,
                             "epic_name": ename,
                             "account_type": acc_type,
@@ -225,19 +234,27 @@ class FortniteBot(commands.Bot):
                             "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
                             "has_kbm": bool(kbm.get("matches", 0) > 0),
                             "is_private": False
-                        })
+                        }
                     except Exception as err:
                         is_priv = "private" in str(err).lower()
-                        results.append({
+                        return {
                             "discord_id": did,
                             "epic_name": ename,
                             "account_type": acc_type,
                             "error": str(err),
                             "is_private": is_priv
-                        })
+                        }
+
+                results = await asyncio.gather(*[fetch_one(p) for p in players])
+                self._squad_stats_cache = {"timestamp": now, "data": results}
                 return web.json_response(results)
 
             async def api_live_shop(request):
+                force = request.query.get("refresh") == "1"
+                now = time.time()
+                if not force and (now - self._shop_cache["timestamp"] < 600) and self._shop_cache["data"]:
+                    return web.json_response(self._shop_cache["data"])
+
                 try:
                     shop_data = await self.fortnite.get_shop()
                     entries = shop_data.get("entries", [])
@@ -298,18 +315,27 @@ class FortniteBot(commands.Bot):
                             "item_type": item_type,
                             "category": cat or item_type
                         })
-                    return web.json_response({
+
+                    resp_data = {
                         "date": shop_data.get("date", ""),
                         "hash": shop_data.get("hash", ""),
                         "total": len(parsed_items),
                         "items": parsed_items
-                    })
+                    }
+                    self._shop_cache = {"timestamp": now, "data": resp_data}
+                    return web.json_response(resp_data)
                 except Exception as e:
                     return web.json_response({"error": str(e)}, status=500)
 
             async def api_live_map(request):
                 try:
-                    map_data = await self.fortnite.get_map()
+                    now = time.time()
+                    if not self._map_cache["data"] or (now - self._map_cache["timestamp"] > 3600):
+                        map_data = await self.fortnite.get_map()
+                        self._map_cache = {"timestamp": now, "data": map_data}
+                    else:
+                        map_data = self._map_cache["data"]
+
                     custom_pois = await get_custom_pois()
                     return web.json_response({
                         "images": map_data.get("images", {}),
@@ -327,6 +353,7 @@ class FortniteBot(commands.Bot):
                     if not name:
                         return web.json_response({"status": "error", "message": "Missing name"}, status=400)
                     saved = await add_custom_poi(name, note)
+                    self._map_cache["timestamp"] = 0
                     return web.json_response({"status": "success", "poi": saved})
                 except Exception as e:
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -338,6 +365,7 @@ class FortniteBot(commands.Bot):
                     if not name:
                         return web.json_response({"status": "error", "message": "Missing name"}, status=400)
                     removed = await delete_custom_poi(name)
+                    self._map_cache["timestamp"] = 0
                     return web.json_response({"status": "success", "removed": removed})
                 except Exception as e:
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -406,6 +434,7 @@ class FortniteBot(commands.Bot):
                         }, status=404)
 
                     await track_player(epic_name, account_type=resolved_platform)
+                    self._squad_stats_cache["timestamp"] = 0
                     logger.info(f"Tracked squad player: {epic_name} on {resolved_platform} (private={is_private})")
                     return web.json_response({
                         "status": "success",
@@ -424,6 +453,7 @@ class FortniteBot(commands.Bot):
                     if not target:
                         return web.json_response({"status": "error", "message": "Missing player identifier"}, status=400)
                     removed = await untrack_player(target)
+                    self._squad_stats_cache["timestamp"] = 0
                     logger.info(f"Untracked player: {target} (removed={removed})")
                     return web.json_response({"status": "success", "removed": removed})
                 except Exception as e:
@@ -434,6 +464,7 @@ class FortniteBot(commands.Bot):
                 target = data.get("discord_id") or data.get("epic_name")
                 if target:
                     await untrack_player(target)
+                    self._squad_stats_cache["timestamp"] = 0
                 return web.json_response({"status": "success"})
 
             async def api_backup_export(request):
