@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
+import difflib
 import json
 import logging
 import random
@@ -173,11 +174,31 @@ class FortniteBot(commands.Bot):
                                 "winRate": overall.get("winRate", 0.0),
                                 "matches": overall.get("matches", 0),
                                 "top3": overall.get("top3", 0),
-                                "top10": overall.get("top10", 0)
+                                "top5": overall.get("top5", 0),
+                                "top6": overall.get("top6", 0),
+                                "top10": overall.get("top10", 0),
+                                "top12": overall.get("top12", 0),
+                                "top25": overall.get("top25", 0),
+                                "killsPerMatch": overall.get("killsPerMatch", 0.0),
+                                "playersOutlived": overall.get("playersOutlived", 0),
+                                "minutesPlayed": overall.get("minutesPlayed", 0),
+                                "score": overall.get("score", 0),
                             },
                             "solo": solo,
                             "duo": duo,
                             "squad": squad,
+                            "gamepad": {
+                                "matches": gamepad.get("matches", 0),
+                                "wins": gamepad.get("wins", 0),
+                                "kills": gamepad.get("kills", 0),
+                                "kd": gamepad.get("kd", 0.0)
+                            },
+                            "kbm": {
+                                "matches": kbm.get("matches", 0),
+                                "wins": kbm.get("wins", 0),
+                                "kills": kbm.get("kills", 0),
+                                "kd": kbm.get("kd", 0.0)
+                            },
                             "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
                             "has_kbm": bool(kbm.get("matches", 0) > 0),
                             "is_private": False
@@ -579,26 +600,34 @@ class FortniteBot(commands.Bot):
 
                     is_private = False
                     resolved_platform = req_plat if req_plat in ["epic", "psn", "xbl"] else None
-                    platforms_to_try = [resolved_platform] if resolved_platform else ["epic", "psn", "xbl"]
-                    found = False
+                    names_to_try = [epic_name]
+                    if " " in epic_name:
+                        names_to_try.append(epic_name.replace(" ", "_"))
+                        names_to_try.append(epic_name.replace(" ", "__"))
 
-                    for plat in platforms_to_try:
-                        try:
-                            await self.fortnite.get_player_stats(name=epic_name, account_type=plat)
-                            resolved_platform = plat
-                            found = True
-                            is_private = False
-                            break
-                        except FortniteAPIError as fe:
-                            if fe.status_code == 403:
+                    found_name = epic_name
+                    for cand in names_to_try:
+                        for plat in platforms_to_try:
+                            try:
+                                await self.fortnite.get_player_stats(name=cand, account_type=plat)
                                 resolved_platform = plat
+                                found_name = cand
                                 found = True
-                                is_private = True
+                                is_private = False
                                 break
-                            elif fe.status_code == 404:
-                                continue
-                            else:
-                                continue
+                            except FortniteAPIError as fe:
+                                if fe.status_code == 403:
+                                    resolved_platform = plat
+                                    found_name = cand
+                                    found = True
+                                    is_private = True
+                                    break
+                                elif fe.status_code == 404:
+                                    continue
+                                else:
+                                    continue
+                        if found:
+                            break
 
                     if not found:
                         return web.json_response({
@@ -606,12 +635,12 @@ class FortniteBot(commands.Bot):
                             "message": f"Player '{epic_name}' not found on Epic Games, PlayStation, or Xbox."
                         }, status=404)
 
-                    await track_player(epic_name, account_type=resolved_platform)
+                    await track_player(found_name, account_type=resolved_platform)
                     self._squad_stats_cache["timestamp"] = 0
-                    logger.info(f"Tracked squad player: {epic_name} on {resolved_platform} (private={is_private})")
+                    logger.info(f"Tracked squad player: {found_name} on {resolved_platform} (private={is_private})")
                     return web.json_response({
                         "status": "success",
-                        "epic_name": epic_name,
+                        "epic_name": found_name,
                         "account_type": resolved_platform,
                         "is_private": is_private,
                         "message": f"Player added ({resolved_platform.upper()})!" if not is_private else f"Player added ({resolved_platform.upper()})! Note: stats are set to Private."
@@ -1177,6 +1206,7 @@ async def stats_cmd(
     window_val = time_window.value if time_window else "lifetime"
 
     target_epic_name: Optional[str] = None
+    target_platform: str = "epic"
 
     if not player:
         # Check linked account for caller
@@ -1193,6 +1223,11 @@ async def stats_cmd(
             )
             await interaction.followup.send(embed=embed)
             return
+        squad_members = await get_all_linked_users_list()
+        for m in squad_members:
+            if str(m.get("discord_user_id")) == str(interaction.user.id):
+                target_platform = m.get("account_type", "epic")
+                break
     else:
         # Check if player is a mention or Discord ID
         mention_id = extract_mention_id(player)
@@ -1206,11 +1241,46 @@ async def stats_cmd(
                 )
                 await interaction.followup.send(embed=embed)
                 return
+            squad_members = await get_all_linked_users_list()
+            for m in squad_members:
+                if str(m.get("discord_user_id")) == str(mention_id):
+                    target_platform = m.get("account_type", "epic")
+                    break
         else:
-            target_epic_name = player.strip()
+            raw_input = player.strip()
+            squad_members = await get_all_linked_users_list()
+            matched_squad_member = None
+
+            # 1. Exact match (case-insensitive)
+            for m in squad_members:
+                if m.get("epic_username", "").lower() == raw_input.lower():
+                    matched_squad_member = m
+                    break
+
+            # 2. Substring match
+            if not matched_squad_member:
+                for m in squad_members:
+                    ename = m.get("epic_username", "")
+                    if raw_input.lower() in ename.lower() or ename.lower() in raw_input.lower():
+                        matched_squad_member = m
+                        break
+
+            # 3. Fuzzy match via difflib
+            if not matched_squad_member and squad_members:
+                names_map = {m.get("epic_username", "").lower(): m for m in squad_members}
+                close = difflib.get_close_matches(raw_input.lower(), list(names_map.keys()), n=1, cutoff=0.55)
+                if close:
+                    matched_squad_member = names_map[close[0]]
+
+            if matched_squad_member:
+                target_epic_name = matched_squad_member.get("epic_username")
+                target_platform = matched_squad_member.get("account_type", "epic")
+            else:
+                target_epic_name = raw_input
+                target_platform = "epic"
 
     try:
-        data = await bot.fortnite.get_player_stats(name=target_epic_name, time_window=window_val)
+        data = await bot.fortnite.get_player_stats(name=target_epic_name, account_type=target_platform, time_window=window_val)
         embed = build_stats_embed(data, time_window=window_val)
         await interaction.followup.send(embed=embed)
     except FortniteAPIError as e:

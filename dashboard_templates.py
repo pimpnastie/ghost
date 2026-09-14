@@ -204,6 +204,114 @@ def get_dashboard_html() -> str:
       font-size: 0.8rem;
     }
 
+    /* Expandable Squad Cards */
+    .card-expand-btn {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: var(--accent);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .card-expand-btn:hover {
+      background: rgba(0, 168, 255, 0.12);
+      border-color: rgba(0, 168, 255, 0.3);
+    }
+    .card-expandable-section {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+    .card-expandable-section.open {
+      display: flex;
+    }
+    .expand-sub-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .expanded-modes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 768px) {
+      .expanded-modes-grid { grid-template-columns: 1fr; }
+    }
+    .expanded-mode-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .expanded-mode-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .expanded-mode-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .expanded-stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .expanded-stat-item .lbl {
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      font-weight: 600;
+    }
+    .expanded-stat-item .val {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: #f1f5f9;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .expanded-telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    @media (max-width: 768px) {
+      .expanded-telemetry-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .device-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+    }
+    .device-pill.active {
+      background: rgba(0, 168, 255, 0.15);
+      border-color: rgba(0, 168, 255, 0.4);
+      color: var(--accent);
+    }
+
     /* Live Shop Grid */
     .shop-grid {
       display: grid;
@@ -519,7 +627,7 @@ def get_dashboard_html() -> str:
 
     <div style="margin-top: auto; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--card-border);">
       <p style="font-size: 0.75rem; color: var(--text-muted);">Admin Session PIN</p>
-      <input type="password" id="adminPin" placeholder="ghost123" style="margin-top: 6px; padding: 8px 10px; font-size: 0.8rem;" oninput="savePin()">
+      <input type="password" id="adminPin" placeholder="Enter PIN..." style="margin-top: 6px; padding: 8px 10px; font-size: 0.8rem;" oninput="savePin()">
     </div>
   </aside>
 
@@ -553,6 +661,7 @@ def get_dashboard_html() -> str:
               <span>🕒 Auto-syncs at 7:00 PM & 10:00 PM EDT</span>
               <span id="squadCacheStatus" style="color: var(--text); font-weight: 700; margin-left: 4px;">• Cached</span>
             </div>
+            <button class="btn btn-secondary" id="toggleAllCardsBtn" onclick="toggleAllCards()">📂 Expand All</button>
             <button class="btn btn-secondary" onclick="loadSquadStats(true)">🔄 Force Live Sync</button>
           </div>
         </div>
@@ -575,7 +684,7 @@ def get_dashboard_html() -> str:
           </div>
           <button class="btn btn-primary" id="trackBtn" onclick="trackPlayer()">➕ Track Player</button>
           <div style="flex: 1; min-width: 160px;">
-            <input type="text" id="filterSquadInput" placeholder="🔍 Filter squad cards..." oninput="filterSquadCards()">
+            <input type="text" id="filterSquadInput" placeholder="🔍 Fuzzy search players (e.g. condoe, ghost, nastie)..." oninput="filterSquadCards()">
           </div>
         </div>
 
@@ -917,11 +1026,21 @@ def get_dashboard_html() -> str:
     }
 
     function getPin() {
-      return localStorage.getItem('ghost_pin') || document.getElementById('adminPin').value || 'ghost123';
+      const pinInput = document.getElementById('adminPin');
+      const val = pinInput ? pinInput.value.trim() : '';
+      if (val) return val;
+      const saved = localStorage.getItem('ghost_pin');
+      return (saved && saved !== 'ghost123') ? saved : '';
     }
 
     function savePin() {
-      localStorage.setItem('ghost_pin', document.getElementById('adminPin').value);
+      const pinInput = document.getElementById('adminPin');
+      const val = pinInput ? pinInput.value.trim() : '';
+      if (val) {
+        localStorage.setItem('ghost_pin', val);
+      } else {
+        localStorage.removeItem('ghost_pin');
+      }
     }
 
     async function trackPlayer() {
@@ -977,12 +1096,86 @@ def get_dashboard_html() -> str:
       }
     }
 
-    function filterSquadCards() {
-      const q = (document.getElementById('filterSquadInput').value || '').toLowerCase();
-      document.querySelectorAll('.player-card').forEach(card => {
-        const text = card.innerText.toLowerCase();
-        card.style.display = text.includes(q) ? 'flex' : 'none';
+    function levenshtein(a, b) {
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            );
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    function fuzzyMatch(query, target) {
+      const q = query.toLowerCase().trim();
+      const t = target.toLowerCase().trim();
+      if (!q) return true;
+      if (t.includes(q)) return true;
+
+      // Subsequence match (e.g. acronyms or typed letters in order)
+      let qIdx = 0;
+      for (let i = 0; i < t.length && qIdx < q.length; i++) {
+        if (t[i] === q[qIdx]) qIdx++;
+      }
+      if (qIdx === q.length && q.length >= 3) return true;
+
+      // Token-based fuzzy match with Levenshtein distance
+      const qTokens = q.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+      const tTokens = t.replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(Boolean);
+
+      return qTokens.every(qTok => {
+        return tTokens.some(tTok => {
+          if (tTok.includes(qTok) || qTok.includes(tTok)) return true;
+          const maxLen = Math.max(qTok.length, tTok.length);
+          if (maxLen < 4) return false;
+          const dist = levenshtein(qTok, tTok);
+          const maxAllowed = maxLen <= 5 ? 1 : 2;
+          return dist <= maxAllowed;
+        });
       });
+    }
+
+    function filterSquadCards() {
+      const q = (document.getElementById('filterSquadInput').value || '').trim();
+      let matchCount = 0;
+      const cards = document.querySelectorAll('.player-card');
+      cards.forEach(card => {
+        const nameElem = card.querySelector('.player-name') || card;
+        const text = nameElem.innerText + ' ' + card.innerText;
+        const isMatch = !q || fuzzyMatch(q, text);
+        card.style.display = isMatch ? 'flex' : 'none';
+        if (isMatch) matchCount++;
+      });
+
+      let noMatchElem = document.getElementById('noMatchNotice');
+      if (!noMatchElem) {
+        noMatchElem = document.createElement('div');
+        noMatchElem.id = 'noMatchNotice';
+        noMatchElem.style.gridColumn = '1/-1';
+        noMatchElem.style.padding = '30px';
+        noMatchElem.style.textAlign = 'center';
+        noMatchElem.style.color = 'var(--text-muted)';
+        const container = document.getElementById('squadContainer');
+        if (container) container.appendChild(noMatchElem);
+      }
+      if (q && matchCount === 0) {
+        noMatchElem.style.display = 'block';
+        noMatchElem.innerHTML = `<p style="font-size: 1rem; color: #fde68a;">No squad members matched <strong>"${q}"</strong>.</p><p style="font-size: 0.8rem; margin-top: 6px;">Try searching with a partial username or nickname (e.g. <em>condor</em>, <em>ghost</em>, <em>nastie</em>, <em>coyote</em>).</p>`;
+      } else if (noMatchElem) {
+        noMatchElem.style.display = 'none';
+      }
     }
 
     async function loadSquadStats(force = false) {
@@ -1114,8 +1307,17 @@ def get_dashboard_html() -> str:
           }
 
           const o = p.overall || {};
+          const isController = Boolean((p.gamepad && p.gamepad.matches > 0) || p.has_controller);
+          const isKbm = Boolean((p.kbm && p.kbm.matches > 0) || p.has_kbm);
+          const killsPerMatch = (o.killsPerMatch || (o.matches ? (o.kills / o.matches) : 0)).toFixed(2);
+          const careerScore = (o.score || 0).toLocaleString();
+          const playHours = Math.round((o.minutesPlayed || 0) / 60).toLocaleString();
+          const outlived = (o.playersOutlived || 0).toLocaleString();
+          const gamepadMatches = (p.gamepad?.matches || (isController ? (p.account_type === 'epic' ? 'Detected' : o.matches || 0) : 0)).toLocaleString();
+          const kbmMatches = (p.kbm?.matches || (isKbm ? 'Detected' : 0)).toLocaleString();
+
           return `
-            <div class="player-card" style="${cardBorder}">
+            <div class="player-card" id="playerCard_${idx}" style="${cardBorder}">
               <div class="player-header">
                 <div class="player-name">
                   <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 800;">#${idx + 1}</span>
@@ -1169,6 +1371,99 @@ def get_dashboard_html() -> str:
                 </div>
               </div>
 
+              <!-- Expand / Collapse Toggle Button -->
+              <button class="card-expand-btn" id="expandBtn_${idx}" onclick="toggleCardExpand('${idx}')">
+                <span>🔽</span> View Detailed Telemetry
+              </button>
+
+              <!-- Expandable Detailed Telemetry -->
+              <div class="card-expandable-section" id="expandSection_${idx}">
+                <div class="expand-sub-title">🎯 Detailed Game Mode Telemetry</div>
+                <div class="expanded-modes-grid">
+                  <!-- Solo -->
+                  <div class="expanded-mode-card">
+                    <div class="expanded-mode-header">
+                      <span>👤 Solo</span>
+                      <span style="color: var(--gold);">${(p.solo?.wins || 0).toLocaleString()} Wins</span>
+                    </div>
+                    <div class="expanded-mode-stats">
+                      <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.solo?.matches || 0).toLocaleString()}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.solo?.winRate || 0).toFixed(1)}%</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.solo?.kills || 0).toLocaleString()}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.solo?.kd || 0).toFixed(2)}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.solo?.killsPerMatch || (p.solo?.matches ? (p.solo.kills / p.solo.matches) : 0)).toFixed(2)}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Top 10 / 25</span><span class="val">${p.solo?.top10 || 0} / ${p.solo?.top25 || 0}</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Duo -->
+                  <div class="expanded-mode-card">
+                    <div class="expanded-mode-header">
+                      <span>👥 Duo</span>
+                      <span style="color: var(--gold);">${(p.duo?.wins || 0).toLocaleString()} Wins</span>
+                    </div>
+                    <div class="expanded-mode-stats">
+                      <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.duo?.matches || 0).toLocaleString()}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.duo?.winRate || 0).toFixed(1)}%</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.duo?.kills || 0).toLocaleString()}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.duo?.kd || 0).toFixed(2)}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.duo?.killsPerMatch || (p.duo?.matches ? (p.duo.kills / p.duo.matches) : 0)).toFixed(2)}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Top 5 / 12</span><span class="val">${p.duo?.top5 || 0} / ${p.duo?.top12 || 0}</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Squad -->
+                  <div class="expanded-mode-card">
+                    <div class="expanded-mode-header">
+                      <span>🛡️ Squad</span>
+                      <span style="color: var(--gold);">${(p.squad?.wins || 0).toLocaleString()} Wins</span>
+                    </div>
+                    <div class="expanded-mode-stats">
+                      <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.squad?.matches || 0).toLocaleString()}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.squad?.winRate || 0).toFixed(1)}%</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.squad?.kills || 0).toLocaleString()}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.squad?.kd || 0).toFixed(2)}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.squad?.killsPerMatch || (p.squad?.matches ? (p.squad.kills / p.squad.matches) : 0)).toFixed(2)}</span></div>
+                      <div class="expanded-stat-item"><span class="lbl">Top 3 / 6</span><span class="val">${p.squad?.top3 || 0} / ${p.squad?.top6 || 0}</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Advanced Combat & Survival Metrics -->
+                <div class="expand-sub-title">⚔️ Combat & Survival Telemetry</div>
+                <div class="expanded-telemetry-grid">
+                  <div class="stat-box" style="padding: 8px;">
+                    <div class="stat-label">Kills / Match</div>
+                    <div class="stat-val" style="font-size: 1rem;">${killsPerMatch}</div>
+                  </div>
+                  <div class="stat-box" style="padding: 8px;">
+                    <div class="stat-label">Outlived Players</div>
+                    <div class="stat-val" style="font-size: 1rem; color: #38bdf8;">${outlived}</div>
+                  </div>
+                  <div class="stat-box" style="padding: 8px;">
+                    <div class="stat-label">Career Playtime</div>
+                    <div class="stat-val" style="font-size: 1rem;">${playHours} hrs</div>
+                  </div>
+                  <div class="stat-box" style="padding: 8px;">
+                    <div class="stat-label">Total Score</div>
+                    <div class="stat-val" style="font-size: 1rem; color: #a78bfa;">${careerScore}</div>
+                  </div>
+                </div>
+
+                <!-- Input Device Telemetry -->
+                <div class="expand-sub-title">🎮 Input Device Telemetry</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <div class="device-pill ${isController ? 'active' : ''}">
+                    <span>🎮</span>
+                    <span>Gamepad / Controller: <strong>${gamepadMatches}</strong> matches</span>
+                  </div>
+                  <div class="device-pill ${isKbm ? 'active' : ''}">
+                    <span>⌨️</span>
+                    <span>Keyboard & Mouse: <strong>${kbmMatches}</strong> matches</span>
+                  </div>
+                </div>
+              </div>
+
               <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
                 <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
                   📊 FortniteTracker ↗
@@ -1183,9 +1478,39 @@ def get_dashboard_html() -> str:
             </div>
           `;
         }).join('');
+
+        if (allCardsExpanded) {
+          document.querySelectorAll('.card-expandable-section').forEach(s => s.classList.add('open'));
+          document.querySelectorAll('.card-expand-btn').forEach(b => b.innerHTML = '<span>🔼</span> Hide Detailed Telemetry');
+        }
+        filterSquadCards();
       } catch (e) {
         container.innerHTML = `<p style="color: var(--error);">Error loading squad stats: ${e}</p>`;
       }
+    }
+
+    function toggleCardExpand(idx) {
+      const sec = document.getElementById(`expandSection_${idx}`);
+      const btn = document.getElementById(`expandBtn_${idx}`);
+      if (!sec || !btn) return;
+      const isOpen = sec.classList.toggle('open');
+      btn.innerHTML = isOpen ? '<span>🔼</span> Hide Detailed Telemetry' : '<span>🔽</span> View Detailed Telemetry';
+    }
+
+    let allCardsExpanded = false;
+    function toggleAllCards() {
+      allCardsExpanded = !allCardsExpanded;
+      const sections = document.querySelectorAll('.card-expandable-section');
+      const buttons = document.querySelectorAll('.card-expand-btn');
+      sections.forEach(sec => {
+        if (allCardsExpanded) sec.classList.add('open');
+        else sec.classList.remove('open');
+      });
+      buttons.forEach(btn => {
+        btn.innerHTML = allCardsExpanded ? '<span>🔼</span> Hide Detailed Telemetry' : '<span>🔽</span> View Detailed Telemetry';
+      });
+      const topBtn = document.getElementById('toggleAllCardsBtn');
+      if (topBtn) topBtn.innerText = allCardsExpanded ? '📁 Collapse All' : '📂 Expand All';
     }
 
     let rawShopItems = [];
@@ -1749,7 +2074,8 @@ def get_dashboard_html() -> str:
     }
 
     window.onload = () => {
-      document.getElementById('adminPin').value = localStorage.getItem('ghost_pin') || 'ghost123';
+      const savedPin = localStorage.getItem('ghost_pin');
+      document.getElementById('adminPin').value = (savedPin && savedPin !== 'ghost123') ? savedPin : '';
       initDiscordLinkUI();
       loadSquadStats();
     };
