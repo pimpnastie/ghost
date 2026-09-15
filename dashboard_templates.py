@@ -1338,22 +1338,31 @@ def get_dashboard_html() -> str:
           </div>
         </div>
 
-        <div id="threeJsCanvasContainer" style="width: 100%; height: 260px; background: radial-gradient(circle at center, #1e293b 0%, #090d16 80%); border: 1px solid var(--card-border); border-radius: 12px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+        <div id="threeJsCanvasContainer" style="width: 100%; height: 320px; background: radial-gradient(circle at center, #1e293b 0%, #090d16 80%); border: 1px solid var(--card-border); border-radius: 12px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
           <canvas id="cosmeticThreeCanvas" style="width: 100%; height: 100%; cursor: grab;"></canvas>
           <div style="position: absolute; bottom: 8px; left: 10px; font-size: 0.7rem; color: var(--text-muted); background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 6px; pointer-events: none;">
             🖱️ Drag to rotate 360° • Scroll to zoom
           </div>
+          <div id="threeLoadingNotice" style="display: none; position: absolute; top: 12px; right: 12px; font-size: 0.72rem; color: var(--accent); background: rgba(0,0,0,0.7); padding: 3px 8px; border-radius: 6px;">
+            ⚡ Sculpting 3D Mesh...
+          </div>
         </div>
 
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center;">
-          <button class="btn btn-primary" style="font-size: 0.82rem; padding: 9px 16px; background: linear-gradient(135deg, #9333ea, #00a8ff); gap: 6px;" onclick="exportCosmeticObj()">
-            <span>📦</span> Export .OBJ Mesh
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center;">
+          <button class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 14px; background: linear-gradient(135deg, #9333ea, #00a8ff); gap: 6px;" onclick="exportCosmeticObj('textured')">
+            <span>📦</span> Export .OBJ (Textured)
           </button>
-          <button class="btn btn-secondary" style="font-size: 0.82rem; padding: 9px 14px; gap: 6px;" onclick="downloadCosmeticMtl()">
-            <span>🎨</span> Download .MTL Material
+          <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 14px; gap: 6px;" onclick="exportCosmeticObj('relief')">
+            <span>🗿</span> Export 3D Relief Sculpt
           </button>
-          <a id="inspect3dBtn" href="#" target="_blank" class="btn btn-secondary" style="font-size: 0.82rem; padding: 9px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-            <span>↗</span> Fortnite.gg 3D Viewer
+          <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px; gap: 6px;" onclick="downloadCosmeticMtl()">
+            <span>🎨</span> Download .MTL
+          </button>
+          <a id="inspectSketchfabBtn" href="#" target="_blank" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <span>↗</span> Sketchfab 3D Models
+          </a>
+          <a id="inspect3dBtn" href="#" target="_blank" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <span>↗</span> Fortnite.gg Details
           </a>
         </div>
 
@@ -2471,6 +2480,7 @@ def get_dashboard_html() -> str:
     let isThreeInitialized = false;
     let isDragging3d = false;
     let previousPointerPos = { x: 0, y: 0 };
+    let activeCroppedData = null;
 
     function initThreeJsViewport() {
       const canvas = document.getElementById('cosmeticThreeCanvas');
@@ -2479,7 +2489,7 @@ def get_dashboard_html() -> str:
 
       if (isThreeInitialized && threeRenderer) {
         const width = container.clientWidth || 400;
-        const height = container.clientHeight || 260;
+        const height = container.clientHeight || 320;
         if (threeCamera) {
           threeCamera.aspect = width / height;
           threeCamera.updateProjectionMatrix();
@@ -2489,10 +2499,10 @@ def get_dashboard_html() -> str:
       }
 
       const width = container.clientWidth || 400;
-      const height = container.clientHeight || 260;
+      const height = container.clientHeight || 320;
 
       threeScene = new THREE.Scene();
-      threeCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      threeCamera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
       threeCamera.position.set(0, 0, 4.2);
 
       threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
@@ -2500,16 +2510,20 @@ def get_dashboard_html() -> str:
       threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
       // Studio Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
       threeScene.add(ambientLight);
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-      keyLight.position.set(5, 8, 5);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
+      keyLight.position.set(5, 8, 6);
       threeScene.add(keyLight);
 
-      const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
+      const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.85);
       fillLight.position.set(-5, -4, -3);
       threeScene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xa855f7, 0.7);
+      rimLight.position.set(0, 5, -5);
+      threeScene.add(rimLight);
 
       // Interactive Orbit Drag Controls
       const onPointerDown = (e) => {
@@ -2528,6 +2542,7 @@ def get_dashboard_html() -> str:
 
         threeMesh.rotation.y += deltaX * 0.01;
         threeMesh.rotation.x += deltaY * 0.01;
+        threeMesh.rotation.x = Math.max(-Math.PI * 0.42, Math.min(Math.PI * 0.42, threeMesh.rotation.x));
 
         previousPointerPos = { x: clientX, y: clientY };
       };
@@ -2548,7 +2563,7 @@ def get_dashboard_html() -> str:
         e.preventDefault();
         if (!threeCamera) return;
         threeCamera.position.z += e.deltaY * 0.005;
-        threeCamera.position.z = Math.max(2.0, Math.min(8.0, threeCamera.position.z));
+        threeCamera.position.z = Math.max(2.2, Math.min(7.5, threeCamera.position.z));
       }, { passive: false });
 
       isThreeInitialized = true;
@@ -2557,8 +2572,10 @@ def get_dashboard_html() -> str:
 
     function animateThree() {
       requestAnimationFrame(animateThree);
+      const now = performance.now() * 0.001;
       if (threeAutoRotate && !isDragging3d && threeMesh) {
         threeMesh.rotation.y += 0.012;
+        threeMesh.position.y = Math.sin(now * 2.0) * 0.04;
       }
       if (threeRenderer && threeScene && threeCamera) {
         threeRenderer.render(threeScene, threeCamera);
@@ -2571,78 +2588,221 @@ def get_dashboard_html() -> str:
 
       if (threeMesh) {
         threeScene.remove(threeMesh);
-        if (threeMesh.geometry) threeMesh.geometry.dispose();
-        if (Array.isArray(threeMesh.material)) {
-          threeMesh.material.forEach(m => m.dispose());
-        } else if (threeMesh.material) {
-          threeMesh.material.dispose();
-        }
+        threeMesh.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+            else child.material.dispose();
+          }
+        });
         threeMesh = null;
       }
 
+      const notice = document.getElementById('threeLoadingNotice');
+      if (notice) notice.style.display = 'block';
+
       const textureUrl = item.images?.featured || item.images?.icon || item.icon;
-      const textureLoader = new THREE.TextureLoader();
-      const geometry = new THREE.BoxGeometry(2.0, 2.0, 0.22, 4, 4, 2);
-
-      let rimColor = 0x3b82f6;
-      if (item.rarity_clean === 'legendary') rimColor = 0xf59e0b;
-      else if (item.rarity_clean === 'epic') rimColor = 0xa855f7;
-      else if (item.rarity_clean === 'rare') rimColor = 0x0ea5e9;
-      else if (item.rarity_clean === 'uncommon') rimColor = 0x22c55e;
-
-      const rimMaterial = new THREE.MeshStandardMaterial({
-        color: rimColor,
-        metalness: 0.85,
-        roughness: 0.25
-      });
-
-      if (textureUrl) {
-        textureLoader.load(
-          textureUrl,
-          (tex) => {
-            tex.anisotropy = 4;
-            const faceMaterial = new THREE.MeshStandardMaterial({
-              map: tex,
-              roughness: 0.35,
-              metalness: 0.1,
-              transparent: true
-            });
-
-            const materials = [
-              rimMaterial,
-              rimMaterial,
-              rimMaterial,
-              rimMaterial,
-              faceMaterial,
-              rimMaterial
-            ];
-
-            threeMesh = new THREE.Mesh(geometry, materials);
-            threeMesh.rotation.set(0, 0, 0);
-            threeScene.add(threeMesh);
-          },
-          undefined,
-          (err) => {
-            console.warn('Could not load 3D texture in Three.js viewport:', err);
-            const fallbackMat = new THREE.MeshStandardMaterial({ color: rimColor, wireframe: true });
-            threeMesh = new THREE.Mesh(geometry, fallbackMat);
-            threeScene.add(threeMesh);
-          }
-        );
-      } else {
-        const fallbackMat = new THREE.MeshStandardMaterial({ color: rimColor, wireframe: true });
-        threeMesh = new THREE.Mesh(geometry, fallbackMat);
-        threeScene.add(threeMesh);
+      if (!textureUrl) {
+        if (notice) notice.style.display = 'none';
+        return;
       }
+
+      let rimColorHex = 0x38bdf8;
+      if (item.rarity_clean === 'legendary') rimColorHex = 0xf59e0b;
+      else if (item.rarity_clean === 'epic') rimColorHex = 0xa855f7;
+      else if (item.rarity_clean === 'rare') rimColorHex = 0x0ea5e9;
+      else if (item.rarity_clean === 'uncommon') rimColorHex = 0x22c55e;
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (notice) notice.style.display = 'none';
+
+        const canvas2d = document.createElement('canvas');
+        canvas2d.width = img.naturalWidth || img.width;
+        canvas2d.height = img.naturalHeight || img.height;
+        const ctx = canvas2d.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        let minX = canvas2d.width, maxX = 0, minY = canvas2d.height, maxY = 0;
+        let hasOpaque = false;
+        let imgData = null;
+        try {
+          imgData = ctx.getImageData(0, 0, canvas2d.width, canvas2d.height);
+          const data = imgData.data;
+          for (let y = 0; y < canvas2d.height; y++) {
+            for (let x = 0; x < canvas2d.width; x++) {
+              const a = data[(y * canvas2d.width + x) * 4 + 3];
+              if (a > 15) {
+                hasOpaque = true;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Canvas pixel read notice:', e);
+        }
+
+        if (!hasOpaque) {
+          minX = 0; minY = 0; maxX = canvas2d.width - 1; maxY = canvas2d.height - 1;
+        }
+
+        // Add 3% margin
+        const padX = Math.max(2, Math.round((maxX - minX) * 0.03));
+        const padY = Math.max(2, Math.round((maxY - minY) * 0.03));
+        minX = Math.max(0, minX - padX);
+        minY = Math.max(0, minY - padY);
+        maxX = Math.min(canvas2d.width - 1, maxX + padX);
+        maxY = Math.min(canvas2d.height - 1, maxY + padY);
+
+        const cropW = Math.max(1, maxX - minX + 1);
+        const cropH = Math.max(1, maxY - minY + 1);
+        const aspect = cropW / cropH;
+
+        // Front texture canvas
+        const frontCanvas = document.createElement('canvas');
+        frontCanvas.width = cropW;
+        frontCanvas.height = cropH;
+        const fCtx = frontCanvas.getContext('2d');
+        fCtx.drawImage(canvas2d, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+
+        // Mirrored back texture canvas (realistic 3D back presentation)
+        const backCanvas = document.createElement('canvas');
+        backCanvas.width = cropW;
+        backCanvas.height = cropH;
+        const bCtx = backCanvas.getContext('2d');
+        bCtx.translate(cropW, 0);
+        bCtx.scale(-1, 1);
+        bCtx.drawImage(frontCanvas, 0, 0);
+
+        activeCroppedData = {
+          cropCanvas: frontCanvas,
+          aspect: aspect,
+          width: cropW,
+          height: cropH,
+          imgData: imgData,
+          minX: minX,
+          minY: minY,
+          sourceW: canvas2d.width,
+          sourceH: canvas2d.height
+        };
+
+        const frontTex = new THREE.CanvasTexture(frontCanvas);
+        frontTex.anisotropy = 4;
+        const backTex = new THREE.CanvasTexture(backCanvas);
+        backTex.anisotropy = 4;
+
+        let meshW = 2.4;
+        let meshH = 2.4;
+        if (aspect >= 1) {
+          meshW = 2.6;
+          meshH = 2.6 / aspect;
+        } else {
+          meshH = 2.6;
+          meshW = 2.6 * aspect;
+        }
+
+        const modelGroup = new THREE.Group();
+
+        // 1. Front plate (alphaTest discards transparent pixels completely)
+        const frontGeo = new THREE.PlaneGeometry(meshW, meshH);
+        const frontMat = new THREE.MeshStandardMaterial({
+          map: frontTex,
+          transparent: true,
+          alphaTest: 0.12,
+          roughness: 0.35,
+          metalness: 0.2,
+          side: THREE.FrontSide
+        });
+        const frontMesh = new THREE.Mesh(frontGeo, frontMat);
+        frontMesh.position.z = 0.05;
+        modelGroup.add(frontMesh);
+
+        // 2. Back plate (Mirrored so cosmetic looks continuous in 3D)
+        const backGeo = new THREE.PlaneGeometry(meshW, meshH);
+        const backMat = new THREE.MeshStandardMaterial({
+          map: backTex,
+          transparent: true,
+          alphaTest: 0.12,
+          roughness: 0.4,
+          metalness: 0.2,
+          side: THREE.FrontSide
+        });
+        const backMesh = new THREE.Mesh(backGeo, backMat);
+        backMesh.position.z = -0.05;
+        backMesh.rotation.y = Math.PI;
+        modelGroup.add(backMesh);
+
+        // 3. Middle core slices (Creates tangible physical thickness matching the silhouette)
+        const midMat = new THREE.MeshStandardMaterial({
+          map: frontTex,
+          transparent: true,
+          alphaTest: 0.15,
+          color: rimColorHex,
+          roughness: 0.2,
+          metalness: 0.8,
+          side: THREE.DoubleSide
+        });
+        [-0.025, 0.0, 0.025].forEach(zPos => {
+          const slice = new THREE.Mesh(frontGeo, midMat);
+          slice.position.z = zPos;
+          modelGroup.add(slice);
+        });
+
+        // 4. Sleek 3D Studio Pedestal
+        const pedRadius = Math.max(1.0, Math.max(meshW, meshH) * 0.55);
+        const pedGeo = new THREE.CylinderGeometry(pedRadius, pedRadius * 1.06, 0.1, 32);
+        const pedMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          metalness: 0.9,
+          roughness: 0.25
+        });
+        const pedMesh = new THREE.Mesh(pedGeo, pedMat);
+        pedMesh.position.y = -meshH / 2 - 0.28;
+        modelGroup.add(pedMesh);
+
+        // Glowing rarity ring on pedestal
+        const ringGeo = new THREE.RingGeometry(pedRadius * 0.76, pedRadius * 0.92, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: rimColorHex,
+          side: THREE.DoubleSide
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = -Math.PI / 2;
+        ringMesh.position.y = -meshH / 2 - 0.22;
+        modelGroup.add(ringMesh);
+
+        threeScene.add(modelGroup);
+        threeMesh = modelGroup;
+        threeMesh.rotation.set(0, 0, 0);
+
+        if (threeCamera) {
+          const maxDim = Math.max(meshW, meshH);
+          threeCamera.position.set(0, 0, Math.max(3.2, maxDim * 1.35));
+        }
+      };
+
+      img.onerror = (e) => {
+        if (notice) notice.style.display = 'none';
+        console.warn('Image load error for 3D viewport:', e);
+      };
+      img.src = textureUrl;
     }
 
     function toggle3dWireframe() {
       if (!threeMesh) return;
-      if (Array.isArray(threeMesh.material)) {
-        threeMesh.material.forEach(m => { m.wireframe = !m.wireframe; });
-      } else if (threeMesh.material) {
-        threeMesh.material.wireframe = !threeMesh.material.wireframe;
-      }
+      threeMesh.traverse(child => {
+        if (child.isMesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => { m.wireframe = !m.wireframe; });
+          } else {
+            child.material.wireframe = !child.material.wireframe;
+          }
+        }
+      });
     }
 
     function toggle3dRotation() {
@@ -2654,39 +2814,64 @@ def get_dashboard_html() -> str:
     }
 
     function reset3dCamera() {
-      if (threeMesh) threeMesh.rotation.set(0, 0, 0);
-      if (threeCamera) threeCamera.position.set(0, 0, 4.2);
+      if (threeMesh) {
+        threeMesh.rotation.set(0, 0, 0);
+        threeMesh.position.set(0, 0, 0);
+      }
+      if (threeCamera && activeCroppedData) {
+        const w = activeCroppedData.aspect >= 1 ? 2.6 : 2.6 * activeCroppedData.aspect;
+        const h = activeCroppedData.aspect >= 1 ? 2.6 / activeCroppedData.aspect : 2.6;
+        const maxDim = Math.max(w, h);
+        threeCamera.position.set(0, 0, Math.max(3.2, maxDim * 1.35));
+      } else if (threeCamera) {
+        threeCamera.position.set(0, 0, 4.2);
+      }
     }
 
     function getSafeItemName(item) {
       return (item?.name || 'cosmetic').toLowerCase().replace(/[^a-z0-9]/g, '_');
     }
 
-    function exportCosmeticObj() {
+    function exportCosmeticObj(mode = 'textured') {
       if (!activeModalItem) {
         showToast('No active cosmetic selected!');
         return;
       }
       const safeName = getSafeItemName(activeModalItem);
       const mtlName = `${safeName}.mtl`;
-      const w = 1.2, h = 1.2, d = 0.12;
+
+      if (mode === 'relief' && activeCroppedData) {
+        exportReliefSculptObj(safeName, mtlName);
+        return;
+      }
+
+      // Standard Textured 3D Mesh with Front, Back, and Beveled Sides
+      const w = activeCroppedData ? (activeCroppedData.aspect >= 1 ? 2.4 : 2.4 * activeCroppedData.aspect) : 2.0;
+      const h = activeCroppedData ? (activeCroppedData.aspect >= 1 ? 2.4 / activeCroppedData.aspect : 2.4) : 2.0;
+      const d = 0.08;
+
+      const hw = (w / 2).toFixed(4);
+      const hh = (h / 2).toFixed(4);
+      const hd = d.toFixed(4);
 
       const objContent = [
-        `# Wavefront .OBJ File`,
+        `# Wavefront .OBJ 3D Model`,
         `# Exported from Ghost Fortnite Assistant`,
-        `# Model: ${activeModalItem.name} (${activeModalItem.item_type || 'Cosmetic'})`,
+        `# Cosmetic: ${activeModalItem.name} (${activeModalItem.item_type || 'Item'})`,
         `mtllib ${mtlName}`,
         `o ${safeName}`,
         ``,
-        `# Vertices`,
-        `v ${-w} ${-h} ${d}`,
-        `v ${w} ${-h} ${d}`,
-        `v ${w} ${h} ${d}`,
-        `v ${-w} ${h} ${d}`,
-        `v ${-w} ${-h} ${-d}`,
-        `v ${w} ${-h} ${-d}`,
-        `v ${w} ${h} ${-d}`,
-        `v ${-w} ${h} ${-d}`,
+        `# Front Vertices (+Z)`,
+        `v -${hw} -${hh} ${hd}`,
+        `v ${hw} -${hh} ${hd}`,
+        `v ${hw} ${hh} ${hd}`,
+        `v -${hw} ${hh} ${hd}`,
+        ``,
+        `# Back Vertices (-Z)`,
+        `v ${hw} -${hh} -${hd}`,
+        `v -${hw} -${hh} -${hd}`,
+        `v -${hw} ${hh} -${hd}`,
+        `v ${hw} ${hh} -${hd}`,
         ``,
         `# Texture Coordinates`,
         `vt 0.0000 0.0000`,
@@ -2702,32 +2887,27 @@ def get_dashboard_html() -> str:
         `vn 1.0000 0.0000 0.0000`,
         `vn -1.0000 0.0000 0.0000`,
         ``,
-        `# Front Face (Art Textured)`,
+        `# Front Face`,
         `usemtl FrontMat_${safeName}`,
         `s 1`,
         `f 1/1/1 2/2/1 3/3/1`,
         `f 1/1/1 3/3/1 4/4/1`,
         ``,
-        `# Back Face`,
+        `# Back Face (Mirrored)`,
+        `usemtl BackMat_${safeName}`,
+        `f 5/1/2 6/2/2 7/3/2`,
+        `f 5/1/2 7/3/2 8/4/2`,
+        ``,
+        `# Edge Bevels`,
         `usemtl RimMat_${safeName}`,
-        `f 6/2/2 5/1/2 8/4/2`,
-        `f 6/2/2 8/4/2 7/3/2`,
-        ``,
-        `# Top Face`,
-        `f 4/4/3 3/3/3 7/2/3`,
-        `f 4/4/3 7/2/3 8/1/3`,
-        ``,
-        `# Bottom Face`,
+        `f 4/4/3 3/3/3 8/2/3`,
+        `f 4/4/3 8/2/3 7/1/3`,
         `f 5/1/4 6/2/4 2/3/4`,
         `f 5/1/4 2/3/4 1/4/4`,
-        ``,
-        `# Right Face`,
-        `f 2/1/5 6/2/5 7/3/5`,
-        `f 2/1/5 7/3/5 3/4/5`,
-        ``,
-        `# Left Face`,
-        `f 5/1/6 1/2/6 4/3/6`,
-        `f 5/1/6 4/3/6 8/4/6`
+        `f 2/1/5 5/2/5 8/3/5`,
+        `f 2/1/5 8/3/5 3/4/5`,
+        `f 6/1/6 1/2/6 4/3/6`,
+        `f 6/1/6 4/3/6 7/4/6`
       ].join('\\n');
 
       const blob = new Blob([objContent], { type: 'text/plain;charset=utf-8' });
@@ -2737,7 +2917,98 @@ def get_dashboard_html() -> str:
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      showToast(`Exported ${activeModalItem.name} as Wavefront .OBJ!`);
+      showToast(`Exported ${activeModalItem.name} as Textured .OBJ! 📦`);
+    }
+
+    function exportReliefSculptObj(safeName, mtlName) {
+      if (!activeCroppedData || !activeCroppedData.cropCanvas) return;
+      const { cropCanvas, aspect } = activeCroppedData;
+      const gridX = 32;
+      const gridY = Math.max(12, Math.min(48, Math.round(32 / aspect)));
+      const sampleCanvas = document.createElement('canvas');
+      sampleCanvas.width = gridX;
+      sampleCanvas.height = gridY;
+      const sCtx = sampleCanvas.getContext('2d');
+      sCtx.drawImage(cropCanvas, 0, 0, gridX, gridY);
+
+      const sData = sCtx.getImageData(0, 0, gridX, gridY).data;
+      const verts = [];
+      const uvs = [];
+      const faces = [];
+
+      const scaleX = 2.4;
+      const scaleY = 2.4 / aspect;
+      const vertIndexMap = {};
+      let vCount = 1;
+
+      for (let y = 0; y < gridY; y++) {
+        for (let x = 0; x < gridX; x++) {
+          const idx = (y * gridX + x) * 4;
+          const a = sData[idx + 3];
+          if (a > 25) {
+            const r = sData[idx], g = sData[idx + 1], b = sData[idx + 2];
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+            const zFront = 0.05 + luminance * 0.12;
+            const zBack = -0.05;
+
+            const posX = ((x / gridX) - 0.5) * scaleX;
+            const posY = (0.5 - (y / gridY)) * scaleY;
+
+            verts.push(`v ${posX.toFixed(4)} ${posY.toFixed(4)} ${zFront.toFixed(4)}`);
+            verts.push(`v ${posX.toFixed(4)} ${posY.toFixed(4)} ${zBack.toFixed(4)}`);
+            uvs.push(`vt ${(x / gridX).toFixed(4)} ${(1 - (y / gridY)).toFixed(4)}`);
+
+            vertIndexMap[`${x},${y}`] = { front: vCount, back: vCount + 1, uv: Math.floor(vCount / 2) + 1 };
+            vCount += 2;
+          }
+        }
+      }
+
+      for (let y = 0; y < gridY - 1; y++) {
+        for (let x = 0; x < gridX - 1; x++) {
+          const p00 = vertIndexMap[`${x},${y}`];
+          const p10 = vertIndexMap[`${x + 1},${y}`];
+          const p11 = vertIndexMap[`${x + 1},${y + 1}`];
+          const p01 = vertIndexMap[`${x},${y + 1}`];
+
+          if (p00 && p10 && p11 && p01) {
+            faces.push(`f ${p00.front}/${p00.uv} ${p10.front}/${p10.uv} ${p11.front}/${p11.uv}`);
+            faces.push(`f ${p00.front}/${p00.uv} ${p11.front}/${p11.uv} ${p01.front}/${p01.uv}`);
+            faces.push(`f ${p10.back}/${p10.uv} ${p00.back}/${p00.uv} ${p01.back}/${p01.uv}`);
+            faces.push(`f ${p10.back}/${p10.uv} ${p01.back}/${p01.uv} ${p11.back}/${p11.uv}`);
+          }
+        }
+      }
+
+      const sculptContent = [
+        `# Wavefront .OBJ 3D Relief Sculpt`,
+        `# Exported from Ghost Fortnite Assistant`,
+        `# Cosmetic: ${activeModalItem.name}`,
+        `mtllib ${mtlName}`,
+        `o ${safeName}_relief_sculpt`,
+        ``,
+        `# Sculpt Vertices`,
+        ...verts,
+        ``,
+        `# Texture Coordinates`,
+        ...uvs,
+        ``,
+        `# Normals`,
+        `vn 0.0000 0.0000 1.0000`,
+        ``,
+        `usemtl FrontMat_${safeName}`,
+        `s 1`,
+        ...faces
+      ].join('\\n');
+
+      const blob = new Blob([sculptContent], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${safeName}_relief_sculpt.obj`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast(`Exported ${activeModalItem.name} 3D Relief Sculpt! 🗿`);
     }
 
     function downloadCosmeticMtl() {
@@ -2757,15 +3028,24 @@ def get_dashboard_html() -> str:
         `Ka 1.000 1.000 1.000`,
         `Kd 1.000 1.000 1.000`,
         `Ks 0.200 0.200 0.200`,
-        `Ns 50.0`,
+        `Ns 60.0`,
+        `d 1.0`,
+        `illum 2`,
+        `map_Kd ${textureUrl}`,
+        ``,
+        `newmtl BackMat_${safeName}`,
+        `Ka 0.900 0.900 0.900`,
+        `Kd 0.900 0.900 0.900`,
+        `Ks 0.200 0.200 0.200`,
+        `Ns 60.0`,
         `d 1.0`,
         `illum 2`,
         `map_Kd ${textureUrl}`,
         ``,
         `newmtl RimMat_${safeName}`,
-        `Ka 0.150 0.150 0.200`,
-        `Kd 0.300 0.350 0.450`,
-        `Ks 0.800 0.800 0.900`,
+        `Ka 0.200 0.200 0.250`,
+        `Kd 0.350 0.400 0.500`,
+        `Ks 0.850 0.850 0.950`,
         `Ns 120.0`,
         `d 1.0`,
         `illum 2`
@@ -2778,7 +3058,7 @@ def get_dashboard_html() -> str:
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      showToast(`Downloaded ${activeModalItem.name} .MTL Material!`);
+      showToast(`Downloaded ${activeModalItem.name} .MTL Material! 🎨`);
     }
 
     function openCosmeticModal(itemId) {
@@ -2873,6 +3153,11 @@ def get_dashboard_html() -> str:
         } else {
           threeDBtn.href = `https://fortnite.gg/cosmetics?q=${encodeURIComponent(item.name)}`;
         }
+      }
+
+      const sketchfabBtn = document.getElementById('inspectSketchfabBtn');
+      if (sketchfabBtn) {
+        sketchfabBtn.href = `https://sketchfab.com/search?q=${encodeURIComponent(item.name + ' fortnite')}&type=models`;
       }
 
       // Detect Jam Track / Music vs 3D Cosmetic
