@@ -4459,10 +4459,10 @@ def get_dashboard_html() -> str:
 
       if (badgeEl) {
         if (shopAvailableCount > 0) {
-          badgeEl.innerText = '✓ ' + shopAvailableCount + ' Item(s) in Today\'s Shop';
+          badgeEl.innerText = "✓ " + shopAvailableCount + " Item(s) in Today's Shop";
           badgeEl.style.color = '#4ade80';
         } else {
-          badgeEl.innerText = 'Vaulted / Not in Today\'s Shop';
+          badgeEl.innerText = "Vaulted / Not in Today's Shop";
           badgeEl.style.color = 'var(--text-muted)';
         }
       }
@@ -4700,7 +4700,7 @@ def get_dashboard_html() -> str:
         savedCombos = data.combos || [];
 
         if (savedCombos.length === 0) {
-          container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No saved combos yet. Mix items above and click \'Save Combo\'!</p>';
+          container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No saved combos yet. Mix items above and click "Save Combo"!</p>';
           return;
         }
 
@@ -4976,7 +4976,7 @@ def get_dashboard_html() -> str:
       if (!container) return;
 
       if (!items || items.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">No locker items found matching your filters. Click \'➕ Add Item\' or \'📥 Bulk Import\' to build this squad member\'s locker!</p>';
+        container.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">No locker items found matching your filters. Click "➕ Add Item" or "📥 Bulk Import" to build this squad member locker!</p>';
         return;
       }
 
@@ -4989,9 +4989,6 @@ def get_dashboard_html() -> str:
         const icon = it.image_url || 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png';
         const rarity = it.rarity || 'Common';
         const typeStr = (it.item_type || 'Cosmetic').toUpperCase();
-
-        const safeOwner = (it.owner_name || '').replace(/'/g, "\\'");
-        const safeItemId = (it.item_id || '').replace(/'/g, "\\'");
 
         card.innerHTML = `
           <img class="locker-card-img" src="${icon}" onerror="this.src='https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png'">
@@ -5048,7 +5045,7 @@ def get_dashboard_html() -> str:
         showToast('Please select a specific player to remove items from their locker.');
         return;
       }
-      if (!confirm('Remove this cosmetic from ' + player + '\'s locker?')) return;
+      if (!confirm("Remove this cosmetic from " + player + "'s locker?")) return;
 
       try {
         const res = await fetch('/api/lockers/remove', {
@@ -5086,7 +5083,7 @@ def get_dashboard_html() -> str:
       pickerTargetMode = 'add_to_locker';
       window._currentLockerAddPlayer = player;
 
-      document.getElementById('pickerModalTitle').innerText = 'Add Item to ' + player + '\'s Locker';
+      document.getElementById('pickerModalTitle').innerText = "Add Item to " + player + "'s Locker";
       document.getElementById('pickerSearchInput').value = '';
       document.getElementById('pickerSourceSelect').value = 'catalog';
       document.getElementById('slotPickerModal').classList.add('open');
@@ -5114,7 +5111,7 @@ def get_dashboard_html() -> str:
         });
         const data = await res.json();
         if (data.status === 'success') {
-          showToast('Added ' + itemPayload.item_name + ' to ' + player + '\'s locker!');
+          showToast("Added " + itemPayload.item_name + " to " + player + "'s locker!");
           closeSlotPickerModal();
           loadSquadLockers();
         } else {
@@ -5149,7 +5146,7 @@ def get_dashboard_html() -> str:
       const player = (document.getElementById('importPlayerInput').value || '').trim();
       const text = document.getElementById('importCosmeticsText').value || '';
       if (!player) {
-        showToast('Please enter the player\'s Epic username');
+        showToast("Please enter the player's Epic username");
         return;
       }
       const lines = text.split(String.fromCharCode(10)).map(l => l.trim()).filter(Boolean);
