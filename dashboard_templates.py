@@ -312,6 +312,142 @@ def get_dashboard_html() -> str:
       color: var(--accent);
     }
 
+    /* Admin Gating */
+    .admin-only {
+      display: none !important;
+    }
+    body.is-admin .admin-only {
+      display: flex !important;
+    }
+    body.is-admin button.admin-only,
+    body.is-admin div.admin-only {
+      display: flex !important;
+    }
+    body.is-admin tr.admin-only {
+      display: table-row !important;
+    }
+
+    /* Tonight's Squad Session Banner */
+    .session-banner {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(59, 130, 246, 0.12));
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    .session-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .session-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .session-badge {
+      background: rgba(245, 158, 11, 0.25);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: var(--gold);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    .session-metrics {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .session-metric {
+      display: flex;
+      flex-direction: column;
+    }
+    .session-metric .lbl {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .session-metric .val {
+      font-size: 1.2rem;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .session-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    /* Accolade Badges */
+    .accolades-shelf {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .accolade-badge {
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .accolade-gold {
+      background: rgba(255, 215, 0, 0.18);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      color: var(--gold);
+    }
+    .accolade-blue {
+      background: rgba(56, 189, 248, 0.18);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+    }
+    .accolade-purple {
+      background: rgba(168, 85, 247, 0.18);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #c084fc;
+    }
+    .accolade-green {
+      background: rgba(34, 197, 94, 0.18);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+    }
+    .accolade-pink {
+      background: rgba(244, 114, 182, 0.18);
+      border: 1px solid rgba(244, 114, 182, 0.4);
+      color: #f472b6;
+    }
+
+    /* Shop Item Card Wishlist Heart & Cursor */
+    .shop-item-card {
+      cursor: pointer;
+    }
+    .shop-item-card.is-wishlisted {
+      border-color: rgba(244, 114, 182, 0.7) !important;
+      box-shadow: 0 0 16px rgba(244, 114, 182, 0.3) !important;
+    }
+    .wishlist-tag {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 0.9rem;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    }
+
     /* Live Shop Grid */
     .shop-grid {
       display: grid;
@@ -621,13 +757,14 @@ def get_dashboard_html() -> str:
       <button class="nav-btn" onclick="switchTab('shop')">🛒 Live Item Shop</button>
       <button class="nav-btn" onclick="switchTab('map')">🗺️ Island Map</button>
       <button class="nav-btn" onclick="switchTab('news')">📰 News & Season</button>
-      <button class="nav-btn" onclick="switchTab('channels')">🎯 Channel Routing</button>
-      <button class="nav-btn" onclick="switchTab('status')">🎮 Presence & Status</button>
+      <button class="nav-btn admin-only" id="navChannels" onclick="switchTab('channels')">🎯 Channel Routing</button>
+      <button class="nav-btn admin-only" id="navStatus" onclick="switchTab('status')">🎮 Presence & Status</button>
     </nav>
 
-    <div style="margin-top: auto; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid var(--card-border);">
-      <p style="font-size: 0.75rem; color: var(--text-muted);">Admin Session PIN</p>
-      <input type="password" id="adminPin" placeholder="Enter PIN..." style="margin-top: 6px; padding: 8px 10px; font-size: 0.8rem;" oninput="savePin()">
+    <div style="margin-top: auto; padding-top: 14px;">
+      <button id="adminLoginBtn" class="btn btn-secondary" style="width: 100%; font-size: 0.78rem; padding: 10px 8px; justify-content: center; gap: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border);" onclick="handleAdminButtonClick()">
+        <span id="adminBtnIcon">🔒</span> <span id="adminBtnText">Admin Unlock</span>
+      </button>
     </div>
   </aside>
 
@@ -669,8 +806,52 @@ def get_dashboard_html() -> str:
           Track your squad members directly from this dashboard. Stats update live from Epic Games.
         </p>
 
-        <!-- Track Player & Filter Bar -->
-        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        <!-- Tonight's Session Banner -->
+        <div id="squadSessionBanner" class="session-banner" style="display: none;">
+          <div class="session-left">
+            <div class="session-title-row">
+              <span class="session-badge">🔥 TONIGHT'S SESSION</span>
+              <span id="sessionStartedAt" style="font-size: 0.75rem; color: var(--text-muted);">Active this evening</span>
+            </div>
+            <div class="session-metrics">
+              <div class="session-metric">
+                <span class="lbl">Squad Wins</span>
+                <span id="sessionWins" class="val" style="color: var(--gold);">+0</span>
+              </div>
+              <div class="session-metric">
+                <span class="lbl">Squad Kills</span>
+                <span id="sessionKills" class="val" style="color: #38bdf8;">+0</span>
+              </div>
+              <div class="session-metric">
+                <span class="lbl">Matches</span>
+                <span id="sessionMatches" class="val">+0</span>
+              </div>
+              <div class="session-metric" id="sessionMvpBox" style="display: none;">
+                <span class="lbl">Tonight's MVP</span>
+                <span id="sessionMvp" class="val" style="color: #f472b6;">👑 None</span>
+              </div>
+            </div>
+          </div>
+          <div class="session-right">
+            <div id="sessionLastWinText" style="font-size: 0.8rem; color: #fde68a;">
+              🏆 Last Win: <strong>None yet tonight</strong>
+            </div>
+            <button class="btn btn-secondary admin-only" id="resetSessionBtn" style="font-size: 0.72rem; padding: 6px 12px;" onclick="resetSessionBaseline()">
+              🔄 Reset Baseline
+            </button>
+          </div>
+        </div>
+
+        <!-- Squad Filter Bar (Public) -->
+        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;">
+          <input type="text" id="filterSquadInput" placeholder="🔍 Fuzzy search players (e.g. condoe, ghost, nastie, coyote)..." oninput="filterSquadCards()">
+        </div>
+
+        <!-- Admin-Only Track Player Bar -->
+        <div class="admin-only" id="trackPlayerBox" style="background: rgba(0, 0, 0, 0.35); border: 1px dashed rgba(255, 215, 0, 0.4); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <div style="width: 100%; font-size: 0.75rem; color: var(--gold); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span>🔒 Admin Action:</span> Add New Squad Member
+          </div>
           <div style="flex: 2; min-width: 220px;">
             <input type="text" id="trackPlayerInput" placeholder="Enter username (e.g. Going__Ghost, KING_CONDOR_)" onkeydown="if(event.key==='Enter') trackPlayer()">
           </div>
@@ -683,9 +864,6 @@ def get_dashboard_html() -> str:
             </select>
           </div>
           <button class="btn btn-primary" id="trackBtn" onclick="trackPlayer()">➕ Track Player</button>
-          <div style="flex: 1; min-width: 160px;">
-            <input type="text" id="filterSquadInput" placeholder="🔍 Fuzzy search players (e.g. condoe, ghost, nastie)..." oninput="filterSquadCards()">
-          </div>
         </div>
 
         <div id="squadContainer" class="squad-grid">
@@ -701,7 +879,7 @@ def get_dashboard_html() -> str:
           <span>🛒 Today's Fortnite Item Shop (Live & Organized)</span>
           <div style="display: flex; gap: 8px;">
             <button class="btn btn-secondary" onclick="loadLiveShop()">🔄 Refresh Shop</button>
-            <button class="btn btn-primary" onclick="testShopBroadcast()">📢 Post to Discord</button>
+            <button class="btn btn-primary admin-only" onclick="testShopBroadcast()">📢 Post to Discord</button>
           </div>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;" id="shopMetaDate">
@@ -762,7 +940,7 @@ def get_dashboard_html() -> str:
           </div>
           <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
             <button class="btn btn-primary" id="spinDropBtn" onclick="spinDropSpot()">🎲 Spin Drop Spot</button>
-            <button class="btn btn-secondary" id="broadcastDropBtn" onclick="broadcastCurrentDrop()" disabled>📢 Broadcast Drop to Discord</button>
+            <button class="btn btn-secondary admin-only" id="broadcastDropBtn" onclick="broadcastCurrentDrop()" disabled>📢 Broadcast Drop to Discord</button>
           </div>
         </div>
       </div>
@@ -790,7 +968,10 @@ def get_dashboard_html() -> str:
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
           Add your squad's favorite unmarked spots, secret vaults, or callouts (saved permanently in MongoDB Atlas).
         </p>
-        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        <div id="addCustomPoiBox" class="admin-only" style="background: rgba(0, 0, 0, 0.25); border: 1px dashed rgba(255, 215, 0, 0.4); border-radius: 12px; padding: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; align-items: center;">
+          <div style="width: 100%; font-size: 0.75rem; color: var(--gold); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span>🔒 Admin Action:</span> Add Squad Callout
+          </div>
           <input type="text" id="customPoiName" placeholder="Spot Name (e.g. Condor's Castle, Loot Bunker 3)" style="flex: 2; min-width: 200px;">
           <input type="text" id="customPoiNote" placeholder="Notes (e.g. 3 slurp barrels, high ground)" style="flex: 3; min-width: 220px;">
           <button class="btn btn-primary" onclick="submitCustomPoi()">➕ Save Drop Spot</button>
@@ -998,6 +1179,97 @@ def get_dashboard_html() -> str:
     </div>
   </div>
 
+  <!-- ADMIN AUTHENTICATION MODAL -->
+  <div id="adminModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 420px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span>🔒</span> Admin Authentication
+        </h3>
+        <button onclick="closeAdminModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
+        Unlock admin management tools for squad tracking, channel routing, custom POIs, and Discord broadcasts.
+      </p>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label for="adminModalPassword">Admin Password</label>
+        <input type="password" id="adminModalPassword" placeholder="Enter password (e.g. ghost123)..." onkeydown="if(event.key==='Enter') submitAdminPassword()">
+        <div id="adminModalError" style="display: none; color: var(--error); font-size: 0.8rem; margin-top: 6px; font-weight: 600;"></div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="closeAdminModal()">Cancel</button>
+        <button class="btn btn-primary" id="adminModalSubmitBtn" style="flex: 1; justify-content: center;" onclick="submitAdminPassword()">Unlock 🔓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COSMETIC INSPECT & 3D VIEWER MODAL -->
+  <div id="cosmeticInspectModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 620px; max-height: 90vh; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span id="inspectModalRarityBadge" class="accolade-badge accolade-gold">✨ Rarity</span>
+          <span id="inspectModalTypeBadge" class="accolade-badge accolade-blue">Outfit</span>
+          <span id="inspectModalNewBadge" class="item-new-badge" style="position: static; display: none;">✨ NEW</span>
+        </div>
+        <button onclick="closeCosmeticModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; line-height: 1;">✕</button>
+      </div>
+
+      <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 16px;">
+        <div style="flex: 1; min-width: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; position: relative;">
+          <img id="inspectModalImg" src="" style="width: 150px; height: 150px; object-fit: contain; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));" alt="Cosmetic">
+          <div id="inspectModalPrice" class="shop-price" style="margin-top: 10px;">🪙 0</div>
+        </div>
+
+        <div style="flex: 1.4; min-width: 220px; display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <h3 id="inspectModalName" style="font-size: 1.35rem; font-weight: 800; margin-bottom: 4px;">Item Name</h3>
+            <p id="inspectModalDesc" style="font-size: 0.85rem; color: var(--text-muted); font-style: italic; line-height: 1.4;">"Item description..."</p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem;">
+            <div id="inspectModalSetRow" style="display: none; color: #a5b4fc;">
+              <strong>Set:</strong> <span id="inspectModalSet"></span>
+            </div>
+            <div id="inspectModalIntroRow" style="display: none; color: var(--text-muted);">
+              <strong>Introduced:</strong> <span id="inspectModalIntro"></span>
+            </div>
+            <div id="inspectModalGiftableRow" style="color: var(--text-muted);">
+              <strong>Giftable:</strong> <span id="inspectModalGiftable">Yes</span>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 8px;">
+            <button id="inspectWishlistBtn" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px;" onclick="toggleModalWishlist()">
+              🤍 Wishlist
+            </button>
+            <a id="inspectDownloadBtn" href="#" target="_blank" download class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px; text-decoration: none;">
+              📥 Art (.PNG)
+            </a>
+            <a id="inspect3dBtn" href="#" target="_blank" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+              <span>🌐</span> Inspect 3D Model ↗
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variants Shelf -->
+      <div id="inspectVariantsBox" style="display: none; border-top: 1px solid var(--card-border); padding-top: 14px; margin-top: 10px;">
+        <h4 style="font-size: 0.85rem; font-weight: 700; color: #fde68a; margin-bottom: 8px;">🎨 Available Styles & Variants</h4>
+        <div id="inspectVariantsList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+      </div>
+
+      <!-- Bundle Items Shelf -->
+      <div id="inspectBundleBox" style="display: none; border-top: 1px solid var(--card-border); padding-top: 14px; margin-top: 10px;">
+        <h4 style="font-size: 0.85rem; font-weight: 700; color: #a5b4fc; margin-bottom: 8px;">📦 Bundle Included Items</h4>
+        <div id="inspectBundleList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast">Settings updated successfully!</div>
 
   <script>
@@ -1025,21 +1297,149 @@ def get_dashboard_html() -> str:
       setTimeout(() => t.classList.remove('show'), 3000);
     }
 
-    function getPin() {
-      const pinInput = document.getElementById('adminPin');
-      const val = pinInput ? pinInput.value.trim() : '';
-      if (val) return val;
-      const saved = localStorage.getItem('ghost_pin');
-      return (saved && saved !== 'ghost123') ? saved : '';
+    let isAdmin = false;
+
+    function checkAdminState() {
+      const token = sessionStorage.getItem('ghost_admin_token');
+      const auth = sessionStorage.getItem('ghost_is_admin');
+      if (token && auth === 'true') {
+        setAdminState(true);
+      } else {
+        setAdminState(false);
+      }
     }
 
-    function savePin() {
-      const pinInput = document.getElementById('adminPin');
-      const val = pinInput ? pinInput.value.trim() : '';
-      if (val) {
-        localStorage.setItem('ghost_pin', val);
+    function setAdminState(adminActive) {
+      isAdmin = !!adminActive;
+      if (isAdmin) {
+        document.body.classList.add('is-admin');
+        const icon = document.getElementById('adminBtnIcon');
+        const text = document.getElementById('adminBtnText');
+        if (icon) icon.innerText = '🔓';
+        if (text) text.innerText = 'Admin Mode (Lock)';
       } else {
-        localStorage.removeItem('ghost_pin');
+        document.body.classList.remove('is-admin');
+        const icon = document.getElementById('adminBtnIcon');
+        const text = document.getElementById('adminBtnText');
+        if (icon) icon.innerText = '🔒';
+        if (text) text.innerText = 'Admin Unlock';
+        const currentTab = document.querySelector('.nav-btn.active');
+        if (currentTab && (currentTab.id === 'navChannels' || currentTab.id === 'navStatus')) {
+          switchTab('squad');
+        }
+      }
+      if (typeof renderCustomPois === 'function' && customPois) {
+        renderCustomPois();
+      }
+    }
+
+    function handleAdminButtonClick() {
+      if (isAdmin) {
+        sessionStorage.removeItem('ghost_admin_token');
+        sessionStorage.removeItem('ghost_is_admin');
+        setAdminState(false);
+        showToast('Admin mode locked 🔒');
+        if (lastSquadData && lastSquadData.length > 0) {
+          renderSquadCards(lastSquadData);
+        }
+      } else {
+        openAdminModal();
+      }
+    }
+
+    function openAdminModal() {
+      const modal = document.getElementById('adminModal');
+      if (modal) {
+        modal.classList.add('open');
+        const err = document.getElementById('adminModalError');
+        if (err) err.style.display = 'none';
+        const pwdInput = document.getElementById('adminModalPassword');
+        if (pwdInput) {
+          pwdInput.value = '';
+          setTimeout(() => pwdInput.focus(), 50);
+        }
+      }
+    }
+
+    function closeAdminModal() {
+      const modal = document.getElementById('adminModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    async function submitAdminPassword() {
+      const pwdInput = document.getElementById('adminModalPassword');
+      const pwd = (pwdInput ? pwdInput.value : '').trim();
+      const errDiv = document.getElementById('adminModalError');
+      const submitBtn = document.getElementById('adminModalSubmitBtn');
+
+      if (!pwd) {
+        if (errDiv) {
+          errDiv.innerText = 'Please enter an admin password.';
+          errDiv.style.display = 'block';
+        }
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.innerText = 'Verifying...';
+        submitBtn.disabled = true;
+      }
+
+      try {
+        const res = await fetch('/api/admin/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+          sessionStorage.setItem('ghost_admin_token', pwd);
+          sessionStorage.setItem('ghost_is_admin', 'true');
+          setAdminState(true);
+          closeAdminModal();
+          showToast('Admin unlocked! 🔓');
+          if (lastSquadData && lastSquadData.length > 0) {
+            renderSquadCards(lastSquadData);
+          }
+        } else {
+          if (errDiv) {
+            errDiv.innerText = data.message || 'Incorrect password.';
+            errDiv.style.display = 'block';
+          }
+        }
+      } catch (e) {
+        if (errDiv) {
+          errDiv.innerText = 'Error verifying password: ' + e;
+          errDiv.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.innerText = 'Unlock 🔓';
+          submitBtn.disabled = false;
+        }
+      }
+    }
+
+    function getPin() {
+      return sessionStorage.getItem('ghost_admin_token') || '';
+    }
+
+    async function resetSessionBaseline() {
+      if (!confirm("Reset tonight's squad session stats? This sets the baseline to current totals.")) return;
+      try {
+        const res = await fetch('/api/squad-session/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Pin': getPin() }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Session baseline reset! 🔥');
+          await loadSquadStats();
+        } else {
+          showToast('Error: ' + (data.message || 'Could not reset session'));
+        }
+      } catch (e) {
+        showToast('Error: ' + e);
       }
     }
 
@@ -1178,6 +1578,373 @@ def get_dashboard_html() -> str:
       }
     }
 
+    let lastSquadData = [];
+
+    function computeSquadAccolades(squad) {
+      const map = {};
+      squad.forEach(p => { map[p.epic_name] = []; });
+      const valid = squad.filter(p => !p.error && !p.is_private && p.overall);
+      if (valid.length === 0) return map;
+
+      // 👑 Victory King: highest career wins
+      const sortedWins = [...valid].sort((a,b) => (b.overall.wins || 0) - (a.overall.wins || 0));
+      if (sortedWins[0] && (sortedWins[0].overall.wins || 0) > 0) {
+        map[sortedWins[0].epic_name].push({ icon: '👑', title: 'Victory King', class: 'accolade-gold', desc: 'Most Career Wins in Squad' });
+      }
+
+      // 🎯 Deadeye: highest overall K/D (min 5 matches, K/D > 1.0)
+      const kdCandidates = valid.filter(p => (p.overall.matches || 0) >= 5);
+      kdCandidates.sort((a,b) => (b.overall.kd || 0) - (a.overall.kd || 0));
+      if (kdCandidates[0] && (kdCandidates[0].overall.kd || 0) > 1.0) {
+        map[kdCandidates[0].epic_name].push({ icon: '🎯', title: 'Deadeye', class: 'accolade-blue', desc: 'Highest Career K/D Ratio' });
+      }
+
+      // 🛡️ Squad Anchor: highest squad mode win rate (min 5 squad matches, win rate > 0)
+      const squadCandidates = valid.filter(p => (p.squad?.matches || 0) >= 5);
+      squadCandidates.sort((a,b) => (b.squad?.winRate || 0) - (a.squad?.winRate || 0));
+      if (squadCandidates[0] && (squadCandidates[0].squad?.winRate || 0) > 0) {
+        map[squadCandidates[0].epic_name].push({ icon: '🛡️', title: 'Squad Anchor', class: 'accolade-purple', desc: 'Highest Squad Win Rate' });
+      }
+
+      // 👤 Lone Wolf: most solo wins (min 1)
+      const soloCandidates = valid.filter(p => (p.solo?.wins || 0) > 0);
+      soloCandidates.sort((a,b) => (b.solo?.wins || 0) - (a.solo?.wins || 0));
+      if (soloCandidates[0]) {
+        map[soloCandidates[0].epic_name].push({ icon: '👤', title: 'Lone Wolf', class: 'accolade-green', desc: 'Most Solo Wins' });
+      }
+
+      // ⚡ Grinder: most matches played (min 10)
+      const matchCandidates = [...valid].sort((a,b) => (b.overall.matches || 0) - (a.overall.matches || 0));
+      if (matchCandidates[0] && (matchCandidates[0].overall.matches || 0) >= 10) {
+        map[matchCandidates[0].epic_name].push({ icon: '⚡', title: 'Grinder', class: 'accolade-gold', desc: 'Most Matches Played' });
+      }
+
+      // 🎮 Controller Demon & ⌨️ KBM Wizard
+      valid.forEach(p => {
+        const isController = Boolean((p.gamepad && p.gamepad.matches > 0) || p.has_controller || p.account_type === 'psn' || p.account_type === 'xbl');
+        const isKbm = Boolean((p.kbm && p.kbm.matches > 0) || p.has_kbm);
+        if (isController && ((p.overall.kd || 0) >= 2.0 || (p.overall.wins || 0) >= 20)) {
+          map[p.epic_name].push({ icon: '🎮', title: 'Controller Demon', class: 'accolade-pink', desc: 'High Tier Gamepad Specialist' });
+        }
+        if (isKbm && ((p.overall.kd || 0) >= 2.0 || (p.overall.wins || 0) >= 20)) {
+          map[p.epic_name].push({ icon: '⌨️', title: 'KBM Wizard', class: 'accolade-blue', desc: 'Precision Keyboard & Mouse Specialist' });
+        }
+      });
+
+      return map;
+    }
+
+    function renderSquadCards(squad) {
+      const container = document.getElementById('squadContainer');
+      if (!Array.isArray(squad) || squad.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1/-1; padding: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p style="font-size: 1.1rem; margin-bottom: 8px;">No squad members tracked yet!</p><p style="color: var(--text-muted);">Admin can add squad members using the track bar above.</p></div>';
+        return;
+      }
+
+      let linkedUser = null;
+      try {
+        linkedUser = JSON.parse(localStorage.getItem('ghost_linked_player') || 'null');
+      } catch (e) {}
+
+      // Sort by overall wins descending
+      squad.sort((a, b) => ((b.overall?.wins || 0) - (a.overall?.wins || 0)));
+
+      let maxWins = -1;
+      let mvpPlayer = null;
+      squad.forEach(p => {
+        if (!p.error && p.overall && (p.overall.wins || 0) > maxWins) {
+          maxWins = p.overall.wins;
+          mvpPlayer = p.epic_name;
+        }
+      });
+
+      const accoladesMap = computeSquadAccolades(squad);
+
+      container.innerHTML = squad.map((p, idx) => {
+        let trackerUrl = `https://fortnitetracker.com/profile/all/${encodeURIComponent(p.epic_name)}`;
+        if (p.account_type === 'psn') {
+          trackerUrl = `https://fortnitetracker.com/profile/psn/${encodeURIComponent(p.epic_name)}`;
+        } else if (p.account_type === 'xbl') {
+          trackerUrl = `https://fortnitetracker.com/profile/xbl/${encodeURIComponent(p.epic_name)}`;
+        }
+
+        let platBadge = '<span style="background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); color: var(--text-muted); padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">⚡ Epic</span>';
+        if (p.account_type === 'psn') {
+          platBadge = '<span style="background: rgba(0, 112, 209, 0.2); border: 1px solid rgba(0, 112, 209, 0.4); color: #38bdf8; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">🎮 PSN</span>';
+        } else if (p.account_type === 'xbl') {
+          platBadge = '<span style="background: rgba(16, 124, 65, 0.2); border: 1px solid rgba(16, 124, 65, 0.4); color: #4ade80; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">💚 Xbox</span>';
+        }
+
+        const isMvp = (p.epic_name === mvpPlayer && maxWins > 0);
+        const isLinkedMe = Boolean(linkedUser && (
+          (linkedUser.epic_name && linkedUser.epic_name.toLowerCase() === p.epic_name.toLowerCase()) ||
+          (linkedUser.discord_id && String(linkedUser.discord_id) === String(p.discord_id))
+        ));
+
+        const meBadge = isLinkedMe ? '<span title="Your Linked Account" style="background: rgba(88, 101, 242, 0.25); color: #a5b4fc; border: 1px solid #5865F2; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👤 YOU</span>' : '';
+        const cardBorder = isLinkedMe ? 'border: 2px solid #5865F2; box-shadow: 0 0 20px rgba(88, 101, 242, 0.35);' : (isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : '');
+
+        const deleteBtn = isAdmin ? `<button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">🗑️</button>` : '';
+
+        // Accolades Shelf
+        const playerAccolades = accoladesMap[p.epic_name] || [];
+        let accoladesHtml = '';
+        if (playerAccolades.length > 0) {
+          accoladesHtml = `
+            <div class="accolades-shelf">
+              ${playerAccolades.map(a => `<span class="accolade-badge ${a.class}" title="${a.desc}">${a.icon} ${a.title}</span>`).join('')}
+            </div>
+          `;
+        }
+
+        if (p.is_private) {
+          return `
+            <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
+              <div class="player-header">
+                <div class="player-name">
+                  <span>${p.epic_name}</span>
+                  ${platBadge}
+                  ${meBadge}
+                </div>
+                <span style="background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                  🔒 Stats Private
+                </span>
+              </div>
+
+              <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #fde68a;">
+                <strong>To show stats here:</strong><br>
+                1. Launch Fortnite on your console / PC.<br>
+                2. Open <strong>Settings ➔ Account and Privacy</strong>.<br>
+                3. Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.<br>
+                4. Click <em>Re-Check</em> below.
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
+                <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
+                  📊 FortniteTracker ↗
+                </a>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
+                  ${deleteBtn}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        if (p.error) {
+          return `
+            <div class="player-card" style="border-color: rgba(59, 130, 246, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
+              <div class="player-header">
+                <div class="player-name">
+                  <span>${p.epic_name}</span>
+                  ${platBadge}
+                  ${meBadge}
+                </div>
+                <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                  ⏳ Connecting...
+                </span>
+              </div>
+
+              <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #bfdbfe;">
+                <strong>Fortnite API Notice:</strong><br>
+                ${p.error}<br>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Please wait a few seconds and click Re-Check.</span>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
+                <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
+                  📊 FortniteTracker ↗
+                </a>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
+                  ${deleteBtn}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        const o = p.overall || {};
+        const isController = Boolean((p.gamepad && p.gamepad.matches > 0) || p.has_controller);
+        const isKbm = Boolean((p.kbm && p.kbm.matches > 0) || p.has_kbm);
+        const killsPerMatch = (o.killsPerMatch || (o.matches ? (o.kills / o.matches) : 0)).toFixed(2);
+        const careerScore = (o.score || 0).toLocaleString();
+        const playHours = Math.round((o.minutesPlayed || 0) / 60).toLocaleString();
+        const outlived = (o.playersOutlived || 0).toLocaleString();
+        const gamepadMatches = (p.gamepad?.matches || (isController ? (p.account_type === 'epic' ? 'Detected' : o.matches || 0) : 0)).toLocaleString();
+        const kbmMatches = (p.kbm?.matches || (isKbm ? 'Detected' : 0)).toLocaleString();
+
+        return `
+          <div class="player-card" id="playerCard_${idx}" style="${cardBorder}">
+            <div class="player-header">
+              <div class="player-name">
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 800;">#${idx + 1}</span>
+                <span>🏆 ${p.epic_name}</span>
+                ${platBadge}
+                ${meBadge}
+                ${isMvp ? '<span title="Highest Wins in Squad" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); border: 1px solid rgba(255, 215, 0, 0.4); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👑 MVP</span>' : ''}
+              </div>
+              <span class="player-bp">BP Lvl ${p.bp_level}</span>
+            </div>
+
+            ${accoladesHtml}
+
+            <div class="stats-matrix">
+              <div class="stat-box">
+                <div class="stat-label">Wins</div>
+                <div class="stat-val" style="color: var(--gold);">${(o.wins || 0).toLocaleString()}</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">K/D Ratio</div>
+                <div class="stat-val">${(o.kd || 0).toFixed(2)}</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-val" style="color: var(--success);">${(o.winRate || 0).toFixed(1)}%</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Total Kills</div>
+                <div class="stat-val">${(o.kills || 0).toLocaleString()}</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Matches</div>
+                <div class="stat-val">${(o.matches || 0).toLocaleString()}</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Top 3</div>
+                <div class="stat-val">${(o.top3 || 0).toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div class="mode-row">
+                <span>👤 <strong>Solo</strong></span>
+                <span>${p.solo?.wins || 0} Wins • ${(p.solo?.kd || 0).toFixed(2)} K/D</span>
+              </div>
+              <div class="mode-row">
+                <span>👥 <strong>Duo</strong></span>
+                <span>${p.duo?.wins || 0} Wins • ${(p.duo?.kd || 0).toFixed(2)} K/D</span>
+              </div>
+              <div class="mode-row">
+                <span>🛡️ <strong>Squad</strong></span>
+                <span>${p.squad?.wins || 0} Wins • ${(p.squad?.kd || 0).toFixed(2)} K/D</span>
+              </div>
+            </div>
+
+            <!-- Expand / Collapse Toggle Button -->
+            <button class="card-expand-btn" id="expandBtn_${idx}" onclick="toggleCardExpand('${idx}')">
+              <span>🔽</span> View Detailed Telemetry
+            </button>
+
+            <!-- Expandable Detailed Telemetry -->
+            <div class="card-expandable-section" id="expandSection_${idx}">
+              <div class="expand-sub-title">🎯 Detailed Game Mode Telemetry</div>
+              <div class="expanded-modes-grid">
+                <!-- Solo -->
+                <div class="expanded-mode-card">
+                  <div class="expanded-mode-header">
+                    <span>👤 Solo</span>
+                    <span style="color: var(--gold);">${(p.solo?.wins || 0).toLocaleString()} Wins</span>
+                  </div>
+                  <div class="expanded-mode-stats">
+                    <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.solo?.matches || 0).toLocaleString()}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.solo?.winRate || 0).toFixed(1)}%</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.solo?.kills || 0).toLocaleString()}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.solo?.kd || 0).toFixed(2)}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.solo?.killsPerMatch || (p.solo?.matches ? (p.solo.kills / p.solo.matches) : 0)).toFixed(2)}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Top 10 / 25</span><span class="val">${p.solo?.top10 || 0} / ${p.solo?.top25 || 0}</span></div>
+                  </div>
+                </div>
+
+                <!-- Duo -->
+                <div class="expanded-mode-card">
+                  <div class="expanded-mode-header">
+                    <span>👥 Duo</span>
+                    <span style="color: var(--gold);">${(p.duo?.wins || 0).toLocaleString()} Wins</span>
+                  </div>
+                  <div class="expanded-mode-stats">
+                    <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.duo?.matches || 0).toLocaleString()}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.duo?.winRate || 0).toFixed(1)}%</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.duo?.kills || 0).toLocaleString()}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.duo?.kd || 0).toFixed(2)}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.duo?.killsPerMatch || (p.duo?.matches ? (p.duo.kills / p.duo.matches) : 0)).toFixed(2)}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Top 5 / 12</span><span class="val">${p.duo?.top5 || 0} / ${p.duo?.top12 || 0}</span></div>
+                  </div>
+                </div>
+
+                <!-- Squad -->
+                <div class="expanded-mode-card">
+                  <div class="expanded-mode-header">
+                    <span>🛡️ Squad</span>
+                    <span style="color: var(--gold);">${(p.squad?.wins || 0).toLocaleString()} Wins</span>
+                  </div>
+                  <div class="expanded-mode-stats">
+                    <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.squad?.matches || 0).toLocaleString()}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.squad?.winRate || 0).toFixed(1)}%</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.squad?.kills || 0).toLocaleString()}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.squad?.kd || 0).toFixed(2)}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.squad?.killsPerMatch || (p.squad?.matches ? (p.squad.kills / p.squad.matches) : 0)).toFixed(2)}</span></div>
+                    <div class="expanded-stat-item"><span class="lbl">Top 3 / 6</span><span class="val">${p.squad?.top3 || 0} / ${p.squad?.top6 || 0}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Advanced Combat & Survival Metrics -->
+              <div class="expand-sub-title">⚔️ Combat & Survival Telemetry</div>
+              <div class="expanded-telemetry-grid">
+                <div class="stat-box" style="padding: 8px;">
+                  <div class="stat-label">Kills / Match</div>
+                  <div class="stat-val" style="font-size: 1rem;">${killsPerMatch}</div>
+                </div>
+                <div class="stat-box" style="padding: 8px;">
+                  <div class="stat-label">Outlived Players</div>
+                  <div class="stat-val" style="font-size: 1rem; color: #38bdf8;">${outlived}</div>
+                </div>
+                <div class="stat-box" style="padding: 8px;">
+                  <div class="stat-label">Career Playtime</div>
+                  <div class="stat-val" style="font-size: 1rem;">${playHours} hrs</div>
+                </div>
+                <div class="stat-box" style="padding: 8px;">
+                  <div class="stat-label">Total Score</div>
+                  <div class="stat-val" style="font-size: 1rem; color: #a78bfa;">${careerScore}</div>
+                </div>
+              </div>
+
+              <!-- Input Device Telemetry -->
+              <div class="expand-sub-title">🎮 Input Device Telemetry</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <div class="device-pill ${isController ? 'active' : ''}">
+                  <span>🎮</span>
+                  <span>Gamepad / Controller: <strong>${gamepadMatches}</strong> matches</span>
+                </div>
+                <div class="device-pill ${isKbm ? 'active' : ''}">
+                  <span>⌨️</span>
+                  <span>Keyboard & Mouse: <strong>${kbmMatches}</strong> matches</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+              <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
+                📊 FortniteTracker ↗
+              </a>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
+                ${deleteBtn}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (allCardsExpanded) {
+        document.querySelectorAll('.card-expandable-section').forEach(s => s.classList.add('open'));
+        document.querySelectorAll('.card-expand-btn').forEach(b => b.innerHTML = '<span>🔼</span> Hide Detailed Telemetry');
+      }
+      filterSquadCards();
+    }
+
     async function loadSquadStats(force = false) {
       const container = document.getElementById('squadContainer');
       container.innerHTML = '<p style="color: var(--text-muted);">Fetching detailed squad telemetry...</p>';
@@ -1186,304 +1953,46 @@ def get_dashboard_html() -> str:
         const res = await fetch(url);
         const resData = await res.json();
         const squad = Array.isArray(resData) ? resData : (resData.squad || []);
+        lastSquadData = squad;
         const lastUpdated = resData.last_updated || 'Cached';
         const statusElem = document.getElementById('squadCacheStatus');
         if (statusElem) statusElem.innerText = '• ' + lastUpdated;
 
-        if (!Array.isArray(squad) || squad.length === 0) {
-          container.innerHTML = '<div style="grid-column: 1/-1; padding: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; text-align: center;"><p style="font-size: 1.1rem; margin-bottom: 8px;">No squad members tracked yet!</p><p style="color: var(--text-muted);">Enter an Epic, PlayStation, or Xbox username above to start tracking stats.</p></div>';
-          return;
+        // Tonight's Squad Session Banner Data Binding
+        const session = resData.session;
+        const banner = document.getElementById('squadSessionBanner');
+        if (session && banner) {
+          banner.style.display = 'flex';
+          const winsElem = document.getElementById('sessionWins');
+          const killsElem = document.getElementById('sessionKills');
+          const matchesElem = document.getElementById('sessionMatches');
+          const mvpBox = document.getElementById('sessionMvpBox');
+          const mvpElem = document.getElementById('sessionMvp');
+          const lastWinElem = document.getElementById('sessionLastWinText');
+
+          if (winsElem) winsElem.innerText = `+${session.wins || 0}`;
+          if (killsElem) killsElem.innerText = `+${session.kills || 0}`;
+          if (matchesElem) matchesElem.innerText = `+${session.matches || 0}`;
+
+          if (session.mvp && session.mvp_wins > 0) {
+            if (mvpBox) mvpBox.style.display = 'flex';
+            if (mvpElem) mvpElem.innerText = `👑 ${session.mvp} (+${session.mvp_wins})`;
+          } else if (mvpBox) {
+            mvpBox.style.display = 'none';
+          }
+
+          if (lastWinElem) {
+            if (session.last_win) {
+              const lw = session.last_win;
+              const timeStr = lw.time ? new Date(lw.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+              lastWinElem.innerHTML = `🏆 Latest Victory Royale: <strong style="color: var(--gold);">${lw.player}</strong> (${lw.mode || 'Battle Royale'}${timeStr ? ' at ' + timeStr : ''})`;
+            } else {
+              lastWinElem.innerHTML = `🏆 Last Win: <strong>None yet tonight</strong>`;
+            }
+          }
         }
 
-        // Check locally linked user to highlight
-        let linkedUser = null;
-        try {
-          linkedUser = JSON.parse(localStorage.getItem('ghost_linked_player') || 'null');
-        } catch (e) {}
-
-        // Sort by overall wins descending so squad leaderboard ranks top to bottom
-        squad.sort((a, b) => ((b.overall?.wins || 0) - (a.overall?.wins || 0)));
-
-        // Determine MVP (highest total wins)
-        let maxWins = -1;
-        let mvpPlayer = null;
-        squad.forEach(p => {
-          if (!p.error && p.overall && (p.overall.wins || 0) > maxWins) {
-            maxWins = p.overall.wins;
-            mvpPlayer = p.epic_name;
-          }
-        });
-
-        container.innerHTML = squad.map((p, idx) => {
-          let trackerUrl = `https://fortnitetracker.com/profile/all/${encodeURIComponent(p.epic_name)}`;
-          if (p.account_type === 'psn') {
-            trackerUrl = `https://fortnitetracker.com/profile/psn/${encodeURIComponent(p.epic_name)}`;
-          } else if (p.account_type === 'xbl') {
-            trackerUrl = `https://fortnitetracker.com/profile/xbl/${encodeURIComponent(p.epic_name)}`;
-          }
-
-          let platBadge = '<span style="background: rgba(255,255,255,0.06); border: 1px solid var(--card-border); color: var(--text-muted); padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">⚡ Epic</span>';
-          if (p.account_type === 'psn') {
-            platBadge = '<span style="background: rgba(0, 112, 209, 0.2); border: 1px solid rgba(0, 112, 209, 0.4); color: #38bdf8; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">🎮 PSN</span>';
-          } else if (p.account_type === 'xbl') {
-            platBadge = '<span style="background: rgba(16, 124, 65, 0.2); border: 1px solid rgba(16, 124, 65, 0.4); color: #4ade80; padding: 2px 7px; border-radius: 10px; font-size: 0.65rem; font-weight: 700;">💚 Xbox</span>';
-          }
-
-          const isMvp = (p.epic_name === mvpPlayer && maxWins > 0);
-          const isLinkedMe = Boolean(linkedUser && (
-            (linkedUser.epic_name && linkedUser.epic_name.toLowerCase() === p.epic_name.toLowerCase()) ||
-            (linkedUser.discord_id && String(linkedUser.discord_id) === String(p.discord_id))
-          ));
-
-          const meBadge = isLinkedMe ? '<span title="Your Linked Account" style="background: rgba(88, 101, 242, 0.25); color: #a5b4fc; border: 1px solid #5865F2; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👤 YOU</span>' : '';
-          const cardBorder = isLinkedMe ? 'border: 2px solid #5865F2; box-shadow: 0 0 20px rgba(88, 101, 242, 0.35);' : (isMvp ? 'border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 4px 20px rgba(255, 215, 0, 0.15);' : '');
-
-          if (p.is_private) {
-            return `
-              <div class="player-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
-                <div class="player-header">
-                  <div class="player-name">
-                    <span>${p.epic_name}</span>
-                    ${platBadge}
-                    ${meBadge}
-                  </div>
-                  <span style="background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
-                    🔒 Stats Private
-                  </span>
-                </div>
-
-                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #fde68a;">
-                  <strong>To show stats here:</strong><br>
-                  1. Launch Fortnite on your console / PC.<br>
-                  2. Open <strong>Settings ➔ Account and Privacy</strong>.<br>
-                  3. Under <strong>Gameplay Privacy</strong>, toggle <strong>"Show on Career Leaderboard"</strong> to <strong>ON</strong>.<br>
-                  4. Click <em>Re-Check</em> below.
-                </div>
-
-                <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
-                  <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
-                    📊 FortniteTracker ↗
-                  </a>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
-                    <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">🗑️</button>
-                  </div>
-                </div>
-              </div>
-            `;
-          }
-
-          if (p.error) {
-            return `
-              <div class="player-card" style="border-color: rgba(59, 130, 246, 0.4); background: rgba(30, 41, 59, 0.7); ${cardBorder}">
-                <div class="player-header">
-                  <div class="player-name">
-                    <span>${p.epic_name}</span>
-                    ${platBadge}
-                    ${meBadge}
-                  </div>
-                  <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
-                    ⏳ Connecting...
-                  </span>
-                </div>
-
-                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 12px; font-size: 0.8rem; line-height: 1.5; color: #bfdbfe;">
-                  <strong>Fortnite API Notice:</strong><br>
-                  ${p.error}<br>
-                  <span style="font-size: 0.75rem; color: var(--text-muted);">Please wait a few seconds and click Re-Check.</span>
-                </div>
-
-                <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px;">
-                  <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
-                    📊 FortniteTracker ↗
-                  </a>
-                  <div style="display: flex; gap: 6px;">
-                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
-                    <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">🗑️</button>
-                  </div>
-                </div>
-              </div>
-            `;
-          }
-
-          const o = p.overall || {};
-          const isController = Boolean((p.gamepad && p.gamepad.matches > 0) || p.has_controller);
-          const isKbm = Boolean((p.kbm && p.kbm.matches > 0) || p.has_kbm);
-          const killsPerMatch = (o.killsPerMatch || (o.matches ? (o.kills / o.matches) : 0)).toFixed(2);
-          const careerScore = (o.score || 0).toLocaleString();
-          const playHours = Math.round((o.minutesPlayed || 0) / 60).toLocaleString();
-          const outlived = (o.playersOutlived || 0).toLocaleString();
-          const gamepadMatches = (p.gamepad?.matches || (isController ? (p.account_type === 'epic' ? 'Detected' : o.matches || 0) : 0)).toLocaleString();
-          const kbmMatches = (p.kbm?.matches || (isKbm ? 'Detected' : 0)).toLocaleString();
-
-          return `
-            <div class="player-card" id="playerCard_${idx}" style="${cardBorder}">
-              <div class="player-header">
-                <div class="player-name">
-                  <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 800;">#${idx + 1}</span>
-                  <span>🏆 ${p.epic_name}</span>
-                  ${platBadge}
-                  ${meBadge}
-                  ${isMvp ? '<span title="Highest Wins in Squad" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); border: 1px solid rgba(255, 215, 0, 0.4); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 800;">👑 MVP</span>' : ''}
-                </div>
-                <span class="player-bp">BP Lvl ${p.bp_level}</span>
-              </div>
-
-              <div class="stats-matrix">
-                <div class="stat-box">
-                  <div class="stat-label">Wins</div>
-                  <div class="stat-val" style="color: var(--gold);">${(o.wins || 0).toLocaleString()}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">K/D Ratio</div>
-                  <div class="stat-val">${(o.kd || 0).toFixed(2)}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Win Rate</div>
-                  <div class="stat-val" style="color: var(--success);">${(o.winRate || 0).toFixed(1)}%</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Total Kills</div>
-                  <div class="stat-val">${(o.kills || 0).toLocaleString()}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Matches</div>
-                  <div class="stat-val">${(o.matches || 0).toLocaleString()}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Top 3</div>
-                  <div class="stat-val">${(o.top3 || 0).toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div style="display: flex; flex-direction: column; gap: 6px;">
-                <div class="mode-row">
-                  <span>👤 <strong>Solo</strong></span>
-                  <span>${p.solo?.wins || 0} Wins • ${(p.solo?.kd || 0).toFixed(2)} K/D</span>
-                </div>
-                <div class="mode-row">
-                  <span>👥 <strong>Duo</strong></span>
-                  <span>${p.duo?.wins || 0} Wins • ${(p.duo?.kd || 0).toFixed(2)} K/D</span>
-                </div>
-                <div class="mode-row">
-                  <span>🛡️ <strong>Squad</strong></span>
-                  <span>${p.squad?.wins || 0} Wins • ${(p.squad?.kd || 0).toFixed(2)} K/D</span>
-                </div>
-              </div>
-
-              <!-- Expand / Collapse Toggle Button -->
-              <button class="card-expand-btn" id="expandBtn_${idx}" onclick="toggleCardExpand('${idx}')">
-                <span>🔽</span> View Detailed Telemetry
-              </button>
-
-              <!-- Expandable Detailed Telemetry -->
-              <div class="card-expandable-section" id="expandSection_${idx}">
-                <div class="expand-sub-title">🎯 Detailed Game Mode Telemetry</div>
-                <div class="expanded-modes-grid">
-                  <!-- Solo -->
-                  <div class="expanded-mode-card">
-                    <div class="expanded-mode-header">
-                      <span>👤 Solo</span>
-                      <span style="color: var(--gold);">${(p.solo?.wins || 0).toLocaleString()} Wins</span>
-                    </div>
-                    <div class="expanded-mode-stats">
-                      <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.solo?.matches || 0).toLocaleString()}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.solo?.winRate || 0).toFixed(1)}%</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.solo?.kills || 0).toLocaleString()}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.solo?.kd || 0).toFixed(2)}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.solo?.killsPerMatch || (p.solo?.matches ? (p.solo.kills / p.solo.matches) : 0)).toFixed(2)}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Top 10 / 25</span><span class="val">${p.solo?.top10 || 0} / ${p.solo?.top25 || 0}</span></div>
-                    </div>
-                  </div>
-
-                  <!-- Duo -->
-                  <div class="expanded-mode-card">
-                    <div class="expanded-mode-header">
-                      <span>👥 Duo</span>
-                      <span style="color: var(--gold);">${(p.duo?.wins || 0).toLocaleString()} Wins</span>
-                    </div>
-                    <div class="expanded-mode-stats">
-                      <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.duo?.matches || 0).toLocaleString()}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.duo?.winRate || 0).toFixed(1)}%</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.duo?.kills || 0).toLocaleString()}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.duo?.kd || 0).toFixed(2)}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.duo?.killsPerMatch || (p.duo?.matches ? (p.duo.kills / p.duo.matches) : 0)).toFixed(2)}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Top 5 / 12</span><span class="val">${p.duo?.top5 || 0} / ${p.duo?.top12 || 0}</span></div>
-                    </div>
-                  </div>
-
-                  <!-- Squad -->
-                  <div class="expanded-mode-card">
-                    <div class="expanded-mode-header">
-                      <span>🛡️ Squad</span>
-                      <span style="color: var(--gold);">${(p.squad?.wins || 0).toLocaleString()} Wins</span>
-                    </div>
-                    <div class="expanded-mode-stats">
-                      <div class="expanded-stat-item"><span class="lbl">Matches</span><span class="val">${(p.squad?.matches || 0).toLocaleString()}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Win Rate</span><span class="val">${(p.squad?.winRate || 0).toFixed(1)}%</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Kills</span><span class="val">${(p.squad?.kills || 0).toLocaleString()}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">K/D</span><span class="val">${(p.squad?.kd || 0).toFixed(2)}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Kills/Match</span><span class="val">${(p.squad?.killsPerMatch || (p.squad?.matches ? (p.squad.kills / p.squad.matches) : 0)).toFixed(2)}</span></div>
-                      <div class="expanded-stat-item"><span class="lbl">Top 3 / 6</span><span class="val">${p.squad?.top3 || 0} / ${p.squad?.top6 || 0}</span></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Advanced Combat & Survival Metrics -->
-                <div class="expand-sub-title">⚔️ Combat & Survival Telemetry</div>
-                <div class="expanded-telemetry-grid">
-                  <div class="stat-box" style="padding: 8px;">
-                    <div class="stat-label">Kills / Match</div>
-                    <div class="stat-val" style="font-size: 1rem;">${killsPerMatch}</div>
-                  </div>
-                  <div class="stat-box" style="padding: 8px;">
-                    <div class="stat-label">Outlived Players</div>
-                    <div class="stat-val" style="font-size: 1rem; color: #38bdf8;">${outlived}</div>
-                  </div>
-                  <div class="stat-box" style="padding: 8px;">
-                    <div class="stat-label">Career Playtime</div>
-                    <div class="stat-val" style="font-size: 1rem;">${playHours} hrs</div>
-                  </div>
-                  <div class="stat-box" style="padding: 8px;">
-                    <div class="stat-label">Total Score</div>
-                    <div class="stat-val" style="font-size: 1rem; color: #a78bfa;">${careerScore}</div>
-                  </div>
-                </div>
-
-                <!-- Input Device Telemetry -->
-                <div class="expand-sub-title">🎮 Input Device Telemetry</div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <div class="device-pill ${isController ? 'active' : ''}">
-                    <span>🎮</span>
-                    <span>Gamepad / Controller: <strong>${gamepadMatches}</strong> matches</span>
-                  </div>
-                  <div class="device-pill ${isKbm ? 'active' : ''}">
-                    <span>⌨️</span>
-                    <span>Keyboard & Mouse: <strong>${kbmMatches}</strong> matches</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style="display: flex; gap: 8px; margin-top: auto; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
-                <a href="${trackerUrl}" target="_blank" style="color: var(--accent); font-size: 0.8rem; font-weight: 700; text-decoration: none;">
-                  📊 FortniteTracker ↗
-                </a>
-                <div style="display: flex; gap: 6px;">
-                  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="loadSquadStats(true)">🔄 Re-Check</button>
-                  <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.75rem; color: var(--error);" onclick="untrackPlayer('${p.epic_name}')" title="Untrack Player">
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-        if (allCardsExpanded) {
-          document.querySelectorAll('.card-expandable-section').forEach(s => s.classList.add('open'));
-          document.querySelectorAll('.card-expand-btn').forEach(b => b.innerHTML = '<span>🔼</span> Hide Detailed Telemetry');
-        }
-        filterSquadCards();
+        renderSquadCards(squad);
       } catch (e) {
         container.innerHTML = `<p style="color: var(--error);">Error loading squad stats: ${e}</p>`;
       }
@@ -1611,6 +2120,16 @@ def get_dashboard_html() -> str:
       renderShopItems(filtered);
     }
 
+    function getWishlist() {
+      try {
+        return JSON.parse(localStorage.getItem('ghost_item_wishlist') || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    let activeModalItem = null;
+
     function renderShopItems(items) {
       const container = document.getElementById('shopContainer');
       if (items.length === 0) {
@@ -1618,10 +2137,14 @@ def get_dashboard_html() -> str:
         return;
       }
 
+      const wishlist = getWishlist();
       container.innerHTML = items.map(item => {
         const rarityClass = 'rarity-' + (item.rarity_clean || 'common');
+        const isWishlisted = wishlist.includes(item.id || item.name);
+        const safeId = encodeURIComponent(item.id || item.name);
         return `
-          <div class="shop-item-card ${rarityClass}">
+          <div class="shop-item-card ${rarityClass} ${isWishlisted ? 'is-wishlisted' : ''}" data-id="${safeId}" onclick="openCosmeticModal(decodeURIComponent(this.dataset.id))" title="Click to inspect 3D model & styles">
+            ${isWishlisted ? '<span class="wishlist-tag" title="In Wishlist">❤️</span>' : ''}
             ${item.is_new ? '<span class="item-new-badge">✨ NEW</span>' : ''}
             <span class="item-type-badge">${item.item_type || 'Cosmetic'}</span>
             ${item.icon ? `<img class="shop-img" src="${item.icon}" loading="lazy" alt="${item.name}">` : '<div style="height: 110px; display:flex; align-items:center; justify-content:center; font-size:2rem;">🎁</div>'}
@@ -1630,6 +2153,147 @@ def get_dashboard_html() -> str:
           </div>
         `;
       }).join('');
+    }
+
+    function openCosmeticModal(itemId) {
+      const item = rawShopItems.find(i => (i.id === itemId || i.name === itemId));
+      if (!item) return;
+      activeModalItem = item;
+
+      const modal = document.getElementById('cosmeticInspectModal');
+      if (!modal) return;
+
+      const rarityBadge = document.getElementById('inspectModalRarityBadge');
+      if (rarityBadge) {
+        rarityBadge.innerText = item.rarity || 'Common';
+        rarityBadge.className = 'accolade-badge accolade-' + (item.rarity_clean === 'legendary' ? 'gold' : (item.rarity_clean === 'epic' ? 'purple' : (item.rarity_clean === 'rare' ? 'blue' : 'gold')));
+      }
+
+      const typeBadge = document.getElementById('inspectModalTypeBadge');
+      if (typeBadge) typeBadge.innerText = item.item_type || 'Cosmetic';
+
+      const newBadge = document.getElementById('inspectModalNewBadge');
+      if (newBadge) newBadge.style.display = item.is_new ? 'inline-block' : 'none';
+
+      const img = document.getElementById('inspectModalImg');
+      if (img) img.src = item.icon || (item.images?.featured || item.images?.icon || '');
+
+      const price = document.getElementById('inspectModalPrice');
+      if (price) price.innerText = `🪙 ${(item.price || 0).toLocaleString()}`;
+
+      const name = document.getElementById('inspectModalName');
+      if (name) name.innerText = item.name;
+
+      const desc = document.getElementById('inspectModalDesc');
+      if (desc) desc.innerText = item.description ? `"${item.description}"` : 'No description available in game files.';
+
+      const setRow = document.getElementById('inspectModalSetRow');
+      const setElem = document.getElementById('inspectModalSet');
+      if (setRow && setElem) {
+        if (item.set) {
+          setRow.style.display = 'block';
+          setElem.innerText = item.set;
+        } else {
+          setRow.style.display = 'none';
+        }
+      }
+
+      const introRow = document.getElementById('inspectModalIntroRow');
+      const introElem = document.getElementById('inspectModalIntro');
+      if (introRow && introElem) {
+        if (item.introduction) {
+          introRow.style.display = 'block';
+          introElem.innerText = item.introduction;
+        } else {
+          introRow.style.display = 'none';
+        }
+      }
+
+      const giftableElem = document.getElementById('inspectModalGiftable');
+      if (giftableElem) giftableElem.innerText = item.giftable ? 'Yes' : 'No';
+
+      updateModalWishlistBtn();
+
+      const dlBtn = document.getElementById('inspectDownloadBtn');
+      if (dlBtn) {
+        dlBtn.href = item.images?.featured || item.images?.icon || item.icon || '#';
+      }
+
+      const threeDBtn = document.getElementById('inspect3dBtn');
+      if (threeDBtn) {
+        if (item.id) {
+          threeDBtn.href = `https://fortnite.gg/cosmetics?id=${item.id}`;
+        } else {
+          threeDBtn.href = `https://fortnite.gg/cosmetics?q=${encodeURIComponent(item.name)}`;
+        }
+      }
+
+      const variantsBox = document.getElementById('inspectVariantsBox');
+      const variantsList = document.getElementById('inspectVariantsList');
+      if (variantsBox && variantsList) {
+        if (item.variants && item.variants.length > 0) {
+          variantsBox.style.display = 'block';
+          variantsList.innerHTML = item.variants.map(v => `
+            <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); padding: 4px 8px; border-radius: 8px;">
+              ${v.image ? `<img src="${v.image}" style="width: 28px; height: 28px; object-fit: contain;">` : ''}
+              <span style="font-size: 0.75rem; font-weight: 600;">${v.name || 'Style'}</span>
+            </div>
+          `).join('');
+        } else {
+          variantsBox.style.display = 'none';
+        }
+      }
+
+      const bundleBox = document.getElementById('inspectBundleBox');
+      const bundleList = document.getElementById('inspectBundleList');
+      if (bundleBox && bundleList) {
+        if (item.bundle_items && item.bundle_items.length > 0) {
+          bundleBox.style.display = 'block';
+          bundleList.innerHTML = item.bundle_items.map(b => `
+            <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); padding: 4px 8px; border-radius: 8px;">
+              ${b.icon ? `<img src="${b.icon}" style="width: 28px; height: 28px; object-fit: contain;">` : ''}
+              <span style="font-size: 0.75rem; font-weight: 600;">${b.name || 'Item'}</span>
+            </div>
+          `).join('');
+        } else {
+          bundleBox.style.display = 'none';
+        }
+      }
+
+      modal.classList.add('open');
+    }
+
+    function closeCosmeticModal() {
+      const modal = document.getElementById('cosmeticInspectModal');
+      if (modal) modal.classList.remove('open');
+      activeModalItem = null;
+    }
+
+    function updateModalWishlistBtn() {
+      const btn = document.getElementById('inspectWishlistBtn');
+      if (!btn || !activeModalItem) return;
+      const wishlist = getWishlist();
+      const isWish = wishlist.includes(activeModalItem.id || activeModalItem.name);
+      btn.innerHTML = isWish ? '❤️ Wishlisted' : '🤍 Add to Wishlist';
+      btn.style.color = isWish ? '#f472b6' : 'var(--text)';
+      btn.style.borderColor = isWish ? 'rgba(244, 114, 182, 0.6)' : 'var(--card-border)';
+    }
+
+    function toggleModalWishlist() {
+      if (!activeModalItem) return;
+      let wishlist = getWishlist();
+      const itemId = activeModalItem.id || activeModalItem.name;
+      const idx = wishlist.indexOf(itemId);
+      if (idx >= 0) {
+        wishlist.splice(idx, 1);
+        showToast(`Removed "${activeModalItem.name}" from Wishlist`);
+      } else {
+        wishlist.push(itemId);
+        showToast(`Added "${activeModalItem.name}" to Wishlist! ❤️`);
+      }
+      localStorage.setItem('ghost_item_wishlist', JSON.stringify(wishlist));
+      updateModalWishlistBtn();
+      filterShopItems();
     }
 
     let mapImages = {};
@@ -1688,12 +2352,13 @@ def get_dashboard_html() -> str:
       }
       listDiv.innerHTML = customPois.map(p => {
         const safeName = encodeURIComponent(p.name);
+        const deleteBtn = isAdmin ? `<button style="background: transparent; border: none; color: var(--error); cursor: pointer; font-size: 0.85rem; padding: 0 4px;" data-name="${safeName}" onclick="deleteCustomPoi(decodeURIComponent(this.dataset.name))" title="Delete custom spot">✕</button>` : '';
         return `
           <div class="custom-poi-chip">
             <span style="cursor: pointer;" data-name="${safeName}" onclick="selectDropSpot(decodeURIComponent(this.dataset.name))" title="Select as drop target">
               📍 <strong>${p.name}</strong> ${p.note ? `<span style="color: var(--text-muted); font-size: 0.75rem;">(${p.note})</span>` : ''}
             </span>
-            <button style="background: transparent; border: none; color: var(--error); cursor: pointer; font-size: 0.85rem; padding: 0 4px;" data-name="${safeName}" onclick="deleteCustomPoi(decodeURIComponent(this.dataset.name))" title="Delete custom spot">✕</button>
+            ${deleteBtn}
           </div>
         `;
       }).join('');
@@ -2074,8 +2739,7 @@ def get_dashboard_html() -> str:
     }
 
     window.onload = () => {
-      const savedPin = localStorage.getItem('ghost_pin');
-      document.getElementById('adminPin').value = (savedPin && savedPin !== 'ghost123') ? savedPin : '';
+      checkAdminState();
       initDiscordLinkUI();
       loadSquadStats();
     };

@@ -10,6 +10,7 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "").strip()
 FORTNITE_API_KEY = os.getenv("FORTNITE_API_KEY", "").strip()
 MONGODB_URI = os.getenv("MONGODB_URI", "").strip()
 PORT = int(os.getenv("PORT", "8080"))
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "ghost123").strip()
 
 FORTNITE_API_BASE = "https://fortnite-api.com"
 DATABASE_PATH = str(BASE_DIR / "bot_data.db")

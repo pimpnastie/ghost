@@ -20,6 +20,7 @@ from config import (
     COLOR_ERROR,
     COLOR_WARNING,
     COLOR_FORTNITE,
+    ADMIN_PASSWORD,
 )
 from database import (
     init_db,
@@ -82,6 +83,7 @@ class FortniteBot(commands.Bot):
         self._shop_cache = {"timestamp": 0, "data": None}
         self._map_cache = {"timestamp": 0, "data": None}
         self._link_codes: Dict[str, Dict[str, Any]] = {}
+        self._session_state: Dict[str, Any] = {"date": "", "baseline": {}, "last_win": None, "started_at": "Evening"}
 
     def generate_link_code(self, epic_name: str, account_type: str = "epic") -> str:
         """Generates a unique 3-letter verification code using letters from 'MOMDAD'."""
@@ -133,6 +135,81 @@ class FortniteBot(commands.Bot):
         self._squad_stats_cache["timestamp"] = 0
         logger.info(f"MODA code {code_upper} claimed by {discord_user} for '{epic_name}'")
         return entry
+
+    def compute_session_stats(self, squad_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculates tonight's squad session deltas (wins, kills, matches) against session baseline."""
+        edt = timezone(timedelta(hours=-4))
+        today_str = datetime.now(edt).strftime("%Y-%m-%d")
+
+        # Auto-initialize baseline if empty or new day
+        if self._session_state.get("date") != today_str or not self._session_state.get("baseline"):
+            new_baseline = {}
+            for p in squad_data:
+                if not p.get("error") and p.get("overall"):
+                    o = p["overall"]
+                    new_baseline[p["epic_name"].lower()] = {
+                        "wins": o.get("wins", 0),
+                        "kills": o.get("kills", 0),
+                        "matches": o.get("matches", 0)
+                    }
+            self._session_state = {
+                "date": today_str,
+                "baseline": new_baseline,
+                "last_win": self._session_state.get("last_win"),
+                "started_at": datetime.now(edt).strftime("%I:%M %p EDT")
+            }
+            try:
+                asyncio.create_task(set_bot_state("squad_session_state", json.dumps(self._session_state)))
+            except Exception:
+                pass
+
+        baseline = self._session_state.get("baseline", {})
+        total_wins = 0
+        total_kills = 0
+        total_matches = 0
+        player_deltas = []
+
+        for p in squad_data:
+            if p.get("error") or not p.get("overall"):
+                continue
+            ename = p.get("epic_name", "")
+            o = p.get("overall", {})
+            base = baseline.get(ename.lower(), {})
+            base_wins = base.get("wins", o.get("wins", 0))
+            base_kills = base.get("kills", o.get("kills", 0))
+            base_matches = base.get("matches", o.get("matches", 0))
+
+            delta_w = max(0, o.get("wins", 0) - base_wins)
+            delta_k = max(0, o.get("kills", 0) - base_kills)
+            delta_m = max(0, o.get("matches", 0) - base_matches)
+
+            total_wins += delta_w
+            total_kills += delta_k
+            total_matches += delta_m
+
+            player_deltas.append({
+                "epic_name": ename,
+                "delta_wins": delta_w,
+                "delta_kills": delta_k,
+                "delta_matches": delta_m
+            })
+
+        mvp = None
+        if player_deltas:
+            sorted_deltas = sorted(player_deltas, key=lambda x: (x["delta_wins"], x["delta_kills"]), reverse=True)
+            if sorted_deltas[0]["delta_wins"] > 0 or sorted_deltas[0]["delta_kills"] > 0:
+                mvp = sorted_deltas[0]["epic_name"]
+
+        return {
+            "date": self._session_state.get("date", today_str),
+            "started_at": self._session_state.get("started_at", "Evening"),
+            "total_wins": total_wins,
+            "total_kills": total_kills,
+            "total_matches": total_matches,
+            "mvp": mvp,
+            "last_win": self._session_state.get("last_win"),
+            "player_deltas": player_deltas
+        }
 
     async def refresh_squad_telemetry(self) -> List[Dict[str, Any]]:
         """Concurrently fetches stats for all tracked squad members and updates persistent cache."""
@@ -281,8 +358,12 @@ class FortniteBot(commands.Bot):
             if cached_squad_str:
                 self._squad_stats_cache = json.loads(cached_squad_str)
                 logger.info("Restored squad stats cache from database state.")
+            saved_session = await get_bot_state("squad_session_state")
+            if saved_session:
+                self._session_state = json.loads(saved_session)
+                logger.info("Restored squad session state from database.")
         except Exception as e:
-            logger.debug(f"Could not restore squad stats cache: {e}")
+            logger.debug(f"Could not restore state: {e}")
 
         # Start web dashboard and health-check control plane
         try:
@@ -386,8 +467,10 @@ class FortniteBot(commands.Bot):
                 if not force and self._squad_stats_cache.get("data"):
                     cached_data = self._squad_stats_cache["data"]
                     last_updated = self._squad_stats_cache.get("last_updated_str", "Active Cache")
+                    session_info = self.compute_session_stats(cached_data)
                     return web.json_response({
                         "squad": cached_data,
+                        "session": session_info,
                         "last_updated": last_updated,
                         "cached": True
                     })
@@ -395,11 +478,51 @@ class FortniteBot(commands.Bot):
                 # Refresh live via parallel fetch
                 results = await self.refresh_squad_telemetry()
                 last_updated = self._squad_stats_cache.get("last_updated_str", "Just now")
+                session_info = self.compute_session_stats(results)
                 return web.json_response({
                     "squad": results,
+                    "session": session_info,
                     "last_updated": last_updated,
                     "cached": False
                 })
+
+            async def api_admin_verify(request):
+                try:
+                    data = await request.json()
+                    password = str(data.get("password", "")).strip()
+                    if password == ADMIN_PASSWORD:
+                        return web.json_response({"status": "success", "token": "admin_verified"})
+                    return web.json_response({"status": "error", "message": "Incorrect admin password"}, status=401)
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_squad_session_reset(request):
+                try:
+                    edt = timezone(timedelta(hours=-4))
+                    today_str = datetime.now(edt).strftime("%Y-%m-%d")
+                    now_time_str = datetime.now(edt).strftime("%I:%M %p EDT")
+                    squad_data = self._squad_stats_cache.get("data") or await self.refresh_squad_telemetry()
+                    new_baseline = {}
+                    for p in squad_data:
+                        if not p.get("error") and p.get("overall"):
+                            o = p["overall"]
+                            new_baseline[p["epic_name"].lower()] = {
+                                "wins": o.get("wins", 0),
+                                "kills": o.get("kills", 0),
+                                "matches": o.get("matches", 0)
+                            }
+                    self._session_state = {
+                        "date": today_str,
+                        "baseline": new_baseline,
+                        "last_win": self._session_state.get("last_win"),
+                        "started_at": now_time_str
+                    }
+                    await set_bot_state("squad_session_state", json.dumps(self._session_state))
+                    session_info = self.compute_session_stats(squad_data)
+                    logger.info(f"Squad session baseline manually reset at {now_time_str}")
+                    return web.json_response({"status": "success", "session": session_info})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
 
             async def api_live_shop(request):
                 force = request.query.get("refresh") == "1"
@@ -424,24 +547,53 @@ class FortniteBot(commands.Bot):
                         icon = ""
                         item_type = "Cosmetic"
                         rarity = "Common"
+                        cosmetic_id = ""
+                        desc = ""
+                        set_name = ""
+                        intro_text = ""
+                        variants = []
+                        bundle_items = []
+                        giftable = bool(e.get("giftable", True))
+                        imgs = {}
 
                         if br:
                             first = br[0]
+                            cosmetic_id = first.get("id", "")
                             name = first.get("name", "")
+                            desc = first.get("description", "")
                             rarity = first.get("rarity", {}).get("displayValue", "Common")
                             imgs = first.get("images", {})
-                            icon = imgs.get("icon") or imgs.get("featured") or imgs.get("smallIcon") or ""
+                            icon = imgs.get("featured") or imgs.get("icon") or imgs.get("smallIcon") or ""
                             item_type = first.get("type", {}).get("displayValue", "Cosmetic")
+                            set_obj = first.get("set")
+                            if isinstance(set_obj, dict):
+                                set_name = set_obj.get("text", "")
+                            intro_obj = first.get("introduction")
+                            if isinstance(intro_obj, dict):
+                                intro_text = intro_obj.get("text", "")
+                            variants = first.get("variants") or []
+                            if len(br) > 1:
+                                for bi in br:
+                                    bi_imgs = bi.get("images") or {}
+                                    bundle_items.append({
+                                        "id": bi.get("id", ""),
+                                        "name": bi.get("name", ""),
+                                        "type": (bi.get("type") or {}).get("displayValue", "Cosmetic"),
+                                        "icon": bi_imgs.get("featured") or bi_imgs.get("icon") or bi_imgs.get("smallIcon") or ""
+                                    })
                         elif tracks:
                             first = tracks[0]
+                            cosmetic_id = first.get("id", "")
                             title = first.get("title", "Jam Track")
                             artist = first.get("artist", "")
                             name = f"{title} - {artist}".strip(" -")
+                            desc = f"Jam Track by {artist}"
                             icon = first.get("albumArt", "")
                             item_type = "Jam Track"
                             rarity = "Icon Series"
                         elif cars:
                             first = cars[0]
+                            cosmetic_id = first.get("id", "")
                             name = first.get("name", "Vehicle")
                             imgs = first.get("images", {})
                             icon = imgs.get("large") or imgs.get("small") or ""
@@ -465,6 +617,7 @@ class FortniteBot(commands.Bot):
                         rarity_clean = rarity.lower().replace(" ", "").replace("_", "")
 
                         parsed_items.append({
+                            "id": cosmetic_id,
                             "name": name,
                             "price": e.get("finalPrice", 0),
                             "regularPrice": e.get("regularPrice", 0),
@@ -474,7 +627,14 @@ class FortniteBot(commands.Bot):
                             "item_type": item_type,
                             "category": cat or item_type,
                             "is_new": is_new,
-                            "banner": banner_val
+                            "banner": banner_val,
+                            "description": desc,
+                            "set": set_name,
+                            "introduction": intro_text,
+                            "variants": variants,
+                            "bundle_items": bundle_items,
+                            "giftable": giftable,
+                            "images": imgs
                         })
 
                     resp_data = {
@@ -702,6 +862,8 @@ class FortniteBot(commands.Bot):
             app.router.add_get("/api/backup/export", api_backup_export)
             app.router.add_post("/api/link-code/generate", api_link_code_generate)
             app.router.add_get("/api/link-code/status", api_link_code_status)
+            app.router.add_post("/api/admin/verify", api_admin_verify)
+            app.router.add_post("/api/squad-session/reset", api_squad_session_reset)
 
             self._web_runner = web.AppRunner(app)
             await self._web_runner.setup()
@@ -887,7 +1049,8 @@ class FortniteBot(commands.Bot):
                     continue
 
                 try:
-                    stats = await self.fortnite.get_player_stats(name=epic_name, time_window="lifetime")
+                    acc_type = p.get("account_type", "epic")
+                    stats = await self.fortnite.get_player_stats(name=epic_name, account_type=acc_type, time_window="lifetime")
                     current_wins = stats.get("stats", {}).get("all", {}).get("overall", {}).get("wins", 0)
                     last_wins = await get_user_last_wins(did)
 
@@ -898,6 +1061,15 @@ class FortniteBot(commands.Bot):
                     if current_wins > last_wins:
                         diff = current_wins - last_wins
                         await set_user_last_wins(did, current_wins)
+
+                        self._session_state["last_win"] = {
+                            "player": epic_name,
+                            "time": datetime.now(edt).strftime("%I:%M %p EDT")
+                        }
+                        try:
+                            await set_bot_state("squad_session_state", json.dumps(self._session_state))
+                        except Exception:
+                            pass
 
                         embed = discord.Embed(
                             title="👑 SQUAD VICTORY ROYALE!",
