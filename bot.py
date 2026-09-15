@@ -84,7 +84,7 @@ class FortniteBot(commands.Bot):
         self._link_codes: Dict[str, Dict[str, Any]] = {}
 
     def generate_link_code(self, epic_name: str, account_type: str = "epic") -> str:
-        """Generates a unique 3-letter verification code using letters from 'MODA'."""
+        """Generates a unique 3-letter verification code using letters from 'MOMDAD'."""
         chars = ["M", "O", "D", "A"]
         now = time.time()
         # Clean up codes older than 15 minutes (900 seconds)
