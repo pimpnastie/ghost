@@ -8,6 +8,7 @@ def get_dashboard_html() -> str:
   <title>Dadmom Squad Portal • Fortnite Telemetry & Shop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     :root {
       --bg: #070b14;
@@ -543,6 +544,43 @@ def get_dashboard_html() -> str:
       color: var(--text-muted);
       backdrop-filter: blur(4px);
     }
+    .item-sale-badge {
+      position: absolute;
+      top: 30px;
+      left: 8px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 6px;
+      z-index: 3;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      letter-spacing: 0.4px;
+    }
+    .vote-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .vote-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+    .vote-btn.active {
+      background: rgba(0, 168, 255, 0.25);
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(0, 168, 255, 0.3);
+    }
 
     /* Map & Drop Roulette */
     .roulette-box {
@@ -945,18 +983,36 @@ def get_dashboard_html() -> str:
         </div>
       </div>
 
-      <!-- Island Map Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>🗺️ Chapter 5 Island Satellite & Named Locations</span>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-secondary" id="mapViewPoiBtn" style="background: rgba(0, 168, 255, 0.2); border: 1px solid var(--accent); color: var(--accent);" onclick="switchMapView('poi')">🏷️ Labeled POIs</button>
-            <button class="btn btn-secondary" id="mapViewCleanBtn" onclick="switchMapView('clean')">🏝️ Clean Satellite</button>
-            <button class="btn btn-secondary" onclick="loadMap()">🔄 Refresh</button>
+      <!-- Island Map Card with Fortnite.gg Interactive Embed & Satellite Switching -->
+      <div class="card" id="mapCardContainer">
+        <div class="card-title" style="flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>🗺️ Island Interactive & Satellite Map</span>
+            <span class="accolade-badge accolade-gold" style="font-size: 0.68rem;">Live Spawns & Chests</span>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="mapViewInteractiveBtn" style="background: rgba(0, 168, 255, 0.2); border: 1px solid var(--accent); color: var(--accent);" onclick="switchMapView('interactive')">🗺️ Interactive (Fortnite.gg)</button>
+            <button class="btn btn-secondary" id="mapViewPoiBtn" onclick="switchMapView('poi')">🏷️ Labeled POIs</button>
+            <button class="btn btn-secondary" id="mapViewCleanBtn" onclick="switchMapView('clean')">🏝️ Satellite View</button>
+            <button class="btn btn-secondary" id="mapFullscreenBtn" onclick="toggleMapFullscreen()" title="Toggle Fullscreen Map">⛶ Fullscreen</button>
+            <a href="https://fortnite.gg/" target="_blank" class="btn btn-secondary" style="text-decoration: none;" title="Open Fortnite.gg in new tab">↗ Fortnite.gg</a>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-          <img id="islandMapImg" src="https://fortnite-api.com/images/map_en.png" style="width: 100%; max-width: 820px; border-radius: 12px; border: 1px solid var(--card-border); box-shadow: 0 8px 30px rgba(0,0,0,0.5);" alt="Fortnite Map">
+
+        <!-- Interactive Fortnite.gg Embed -->
+        <div id="interactiveMapWrapper" style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+          <div style="position: relative; width: 100%; height: 750px; border-radius: 12px; overflow: hidden; border: 1px solid var(--card-border); box-shadow: 0 8px 30px rgba(0,0,0,0.5);">
+            <iframe id="fortniteGgIframe" src="https://fortnite.gg/" style="width: 100%; height: 100%; border: none;" allowfullscreen loading="lazy"></iframe>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); padding: 4px 8px; flex-wrap: wrap; gap: 6px;">
+            <span>⚡ Powered by <strong>Fortnite.gg</strong> — filter live chest spawns, reboot vans, NPCs, boss vaults, and vehicles.</span>
+            <button onclick="reloadMapIframe()" style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-size: 0.75rem;">🔄 Reload Map</button>
+          </div>
+        </div>
+
+        <!-- Static Image Fallback / Satellite View -->
+        <div id="staticMapWrapper" style="display: none; flex-direction: column; align-items: center; gap: 16px; width: 100%;">
+          <img id="islandMapImg" src="https://fortnite-api.com/images/map_en.png" style="width: 100%; max-width: 860px; border-radius: 12px; border: 1px solid var(--card-border); box-shadow: 0 8px 30px rgba(0,0,0,0.5);" alt="Fortnite Map">
         </div>
       </div>
 
@@ -1206,14 +1262,15 @@ def get_dashboard_html() -> str:
     </div>
   </div>
 
-  <!-- COSMETIC INSPECT & 3D VIEWER MODAL -->
+  <!-- COSMETIC INSPECT, MUSIC SHOWCASE & 3D .OBJ TRANSFORMER MODAL -->
   <div id="cosmeticInspectModal" class="modal-backdrop">
-    <div class="modal-box" style="max-width: 620px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-box" style="max-width: 640px; max-height: 92vh; overflow-y: auto;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span id="inspectModalRarityBadge" class="accolade-badge accolade-gold">✨ Rarity</span>
           <span id="inspectModalTypeBadge" class="accolade-badge accolade-blue">Outfit</span>
           <span id="inspectModalNewBadge" class="item-new-badge" style="position: static; display: none;">✨ NEW</span>
+          <span id="inspectModalSavingsBadge" class="accolade-badge accolade-green" style="display: none;"></span>
         </div>
         <button onclick="closeCosmeticModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; line-height: 1;">✕</button>
       </div>
@@ -1221,7 +1278,10 @@ def get_dashboard_html() -> str:
       <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 16px;">
         <div style="flex: 1; min-width: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; position: relative;">
           <img id="inspectModalImg" src="" style="width: 150px; height: 150px; object-fit: contain; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));" alt="Cosmetic">
-          <div id="inspectModalPrice" class="shop-price" style="margin-top: 10px;">🪙 0</div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 10px;">
+            <div id="inspectModalPrice" class="shop-price">🪙 0</div>
+            <span id="inspectModalRegularPrice" style="text-decoration: line-through; color: var(--text-muted); font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; display: none;"></span>
+          </div>
         </div>
 
         <div style="flex: 1.4; min-width: 220px; display: flex; flex-direction: column; gap: 10px;">
@@ -1233,6 +1293,7 @@ def get_dashboard_html() -> str:
           <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem;">
             <div id="inspectModalSetRow" style="display: none; color: #a5b4fc;">
               <strong>Set:</strong> <span id="inspectModalSet"></span>
+              <button id="btnFilterSet" class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.7rem; margin-left: 6px;" onclick="filterCurrentSetInShop()">🔍 Filter Set in Shop</button>
             </div>
             <div id="inspectModalIntroRow" style="display: none; color: var(--text-muted);">
               <strong>Introduced:</strong> <span id="inspectModalIntro"></span>
@@ -1249,8 +1310,83 @@ def get_dashboard_html() -> str:
             <a id="inspectDownloadBtn" href="#" target="_blank" download class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px; text-decoration: none;">
               📥 Art (.PNG)
             </a>
-            <a id="inspect3dBtn" href="#" target="_blank" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-              <span>🌐</span> Inspect 3D Model ↗
+          </div>
+        </div>
+      </div>
+
+      <!-- Squad Hype Reaction Shelf (Fortnite.gg Inspired) -->
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;">
+        <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">Squad Hype Rating:</span>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="voteButtonsGroup">
+          <button class="vote-btn" id="vote_fire" onclick="submitCosmeticVote('fire')">🔥 Fire <span id="voteCount_fire" style="font-size: 0.72rem; color: var(--text-muted);">(0)</span></button>
+          <button class="vote-btn" id="vote_love" onclick="submitCosmeticVote('love')">😍 Cop <span id="voteCount_love" style="font-size: 0.72rem; color: var(--text-muted);">(0)</span></button>
+          <button class="vote-btn" id="vote_mid" onclick="submitCosmeticVote('mid')">😐 Mid <span id="voteCount_mid" style="font-size: 0.72rem; color: var(--text-muted);">(0)</span></button>
+          <button class="vote-btn" id="vote_trash" onclick="submitCosmeticVote('trash')">💩 Drop <span id="voteCount_trash" style="font-size: 0.72rem; color: var(--text-muted);">(0)</span></button>
+        </div>
+      </div>
+
+      <!-- 3D Viewport & .OBJ Transformer (For 3D Cosmetics ONLY) -->
+      <div id="inspect3dSection" style="border-top: 1px solid var(--card-border); padding-top: 16px; margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--accent); display: flex; align-items: center; gap: 6px;">
+            <span>🌐</span> 3D Viewport & .OBJ Transformer
+          </h4>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="toggle3dWireframe()">📐 Wireframe</button>
+            <button class="btn btn-secondary" id="btn3dRotateToggle" style="padding: 4px 10px; font-size: 0.75rem;" onclick="toggle3dRotation()">⏸️ Pause</button>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="reset3dCamera()">🎯 Reset</button>
+          </div>
+        </div>
+
+        <div id="threeJsCanvasContainer" style="width: 100%; height: 260px; background: radial-gradient(circle at center, #1e293b 0%, #090d16 80%); border: 1px solid var(--card-border); border-radius: 12px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+          <canvas id="cosmeticThreeCanvas" style="width: 100%; height: 100%; cursor: grab;"></canvas>
+          <div style="position: absolute; bottom: 8px; left: 10px; font-size: 0.7rem; color: var(--text-muted); background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 6px; pointer-events: none;">
+            🖱️ Drag to rotate 360° • Scroll to zoom
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center;">
+          <button class="btn btn-primary" style="font-size: 0.82rem; padding: 9px 16px; background: linear-gradient(135deg, #9333ea, #00a8ff); gap: 6px;" onclick="exportCosmeticObj()">
+            <span>📦</span> Export .OBJ Mesh
+          </button>
+          <button class="btn btn-secondary" style="font-size: 0.82rem; padding: 9px 14px; gap: 6px;" onclick="downloadCosmeticMtl()">
+            <span>🎨</span> Download .MTL Material
+          </button>
+          <a id="inspect3dBtn" href="#" target="_blank" class="btn btn-secondary" style="font-size: 0.82rem; padding: 9px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <span>↗</span> Fortnite.gg 3D Viewer
+          </a>
+        </div>
+
+        <p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
+          💡 <strong>.OBJ Transformer:</strong> Exports standard Wavefront 3D geometry (.obj) and material (.mtl) files textured for Blender, Unreal Engine, Maya, or 3D printing. For raw proprietary game skeleton rigs, use <a href="https://github.com/FortnitePorting/FortnitePorting" target="_blank" style="color: #38bdf8;">FortnitePorting</a>.
+        </p>
+      </div>
+
+      <!-- Music Showcase Section (Shown ONLY for Jam Tracks / Music Packs) -->
+      <div id="inspectMusicSection" style="display: none; border-top: 1px solid var(--card-border); padding-top: 16px; margin-top: 14px;">
+        <div style="background: linear-gradient(135deg, rgba(147, 51, 234, 0.15), rgba(6, 182, 212, 0.15)); border: 1px solid rgba(147, 51, 234, 0.35); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.4rem;">🎵</span>
+              <div>
+                <h4 style="font-size: 0.95rem; font-weight: 800; color: #c084fc;">Jam Track Audio Showcase</h4>
+                <p style="font-size: 0.75rem; color: var(--text-muted);">Audio asset • 3D mesh not applicable</p>
+              </div>
+            </div>
+            <span class="accolade-badge accolade-purple">Fortnite Festival</span>
+          </div>
+
+          <div style="font-size: 0.85rem; line-height: 1.5;">
+            <div><strong>Track:</strong> <span id="musicTrackTitle"></span></div>
+            <div><strong>Artist:</strong> <span id="musicTrackArtist" style="color: #38bdf8;"></span></div>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+            <a id="musicSearchYoutube" href="#" target="_blank" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 14px; text-decoration: none; color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
+              ▶ Search on YouTube
+            </a>
+            <a id="musicSearchSpotify" href="#" target="_blank" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 14px; text-decoration: none; color: #4ade80; border-color: rgba(34, 197, 94, 0.4);">
+              🎧 Search on Spotify
             </a>
           </div>
         </div>
@@ -2142,10 +2278,16 @@ def get_dashboard_html() -> str:
         const rarityClass = 'rarity-' + (item.rarity_clean || 'common');
         const isWishlisted = wishlist.includes(item.id || item.name);
         const safeId = encodeURIComponent(item.id || item.name);
+        const regPrice = item.regularPrice || item.regular_price || 0;
+        const curPrice = item.price || 0;
+        const hasSale = regPrice > curPrice && curPrice > 0;
+        const saved = regPrice - curPrice;
+        const saleBadge = hasSale ? `<span class="item-sale-badge">SALE -${saved.toLocaleString()} 🪙</span>` : '';
         return `
           <div class="shop-item-card ${rarityClass} ${isWishlisted ? 'is-wishlisted' : ''}" data-id="${safeId}" onclick="openCosmeticModal(decodeURIComponent(this.dataset.id))" title="Click to inspect 3D model & styles">
             ${isWishlisted ? '<span class="wishlist-tag" title="In Wishlist">❤️</span>' : ''}
             ${item.is_new ? '<span class="item-new-badge">✨ NEW</span>' : ''}
+            ${saleBadge}
             <span class="item-type-badge">${item.item_type || 'Cosmetic'}</span>
             ${item.icon ? `<img class="shop-img" src="${item.icon}" loading="lazy" alt="${item.name}">` : '<div style="height: 110px; display:flex; align-items:center; justify-content:center; font-size:2rem;">🎁</div>'}
             <div class="shop-name" title="${item.name}">${item.name}</div>
@@ -2153,6 +2295,396 @@ def get_dashboard_html() -> str:
           </div>
         `;
       }).join('');
+    }
+
+    // Squad Hype Reactions & Community Voting
+    function getCosmeticVotes() {
+      try {
+        return JSON.parse(localStorage.getItem('ghost_cosmetic_votes') || '{}');
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function renderCosmeticVotes(itemId) {
+      const allVotes = getCosmeticVotes();
+      const itemVotes = allVotes[itemId] || { fire: 0, love: 0, mid: 0, trash: 0, myVote: null };
+
+      ['fire', 'love', 'mid', 'trash'].forEach(t => {
+        const countElem = document.getElementById('voteCount_' + t);
+        const btnElem = document.getElementById('vote_' + t);
+        if (countElem) countElem.innerText = `(${itemVotes[t] || 0})`;
+        if (btnElem) {
+          if (itemVotes.myVote === t) {
+            btnElem.classList.add('voted');
+          } else {
+            btnElem.classList.remove('voted');
+          }
+        }
+      });
+    }
+
+    function submitCosmeticVote(voteType) {
+      if (!activeModalItem) return;
+      const itemId = activeModalItem.id || activeModalItem.name;
+      let allVotes = getCosmeticVotes();
+      if (!allVotes[itemId]) {
+        allVotes[itemId] = { fire: 0, love: 0, mid: 0, trash: 0, myVote: null };
+      }
+      const curr = allVotes[itemId];
+
+      if (curr.myVote === voteType) {
+        curr[voteType] = Math.max(0, (curr[voteType] || 1) - 1);
+        curr.myVote = null;
+        showToast(`Removed your vote for ${activeModalItem.name}`);
+      } else {
+        if (curr.myVote && curr[curr.myVote]) {
+          curr[curr.myVote] = Math.max(0, curr[curr.myVote] - 1);
+        }
+        curr[voteType] = (curr[voteType] || 0) + 1;
+        curr.myVote = voteType;
+        const labels = { fire: '🔥 Fire', love: '😍 Cop', mid: '😐 Mid', trash: '💩 Drop' };
+        showToast(`Voted ${labels[voteType] || voteType} on ${activeModalItem.name}!`);
+      }
+
+      localStorage.setItem('ghost_cosmetic_votes', JSON.stringify(allVotes));
+      renderCosmeticVotes(itemId);
+    }
+
+    function filterCurrentSetInShop() {
+      if (!activeModalItem || !activeModalItem.set) return;
+      const targetSet = activeModalItem.set;
+      closeCosmeticModal();
+      const searchInput = document.getElementById('shopSearchInput');
+      if (searchInput) searchInput.value = targetSet;
+      currentShopCategory = 'all';
+      document.querySelectorAll('#shopCategoryPills .filter-pill').forEach(b => {
+        if (b.id !== 'pillNewOnly') b.classList.remove('active');
+      });
+      const allPill = Array.from(document.querySelectorAll('#shopCategoryPills .filter-pill')).find(b => b.innerText.includes('All'));
+      if (allPill) allPill.classList.add('active');
+
+      filterShopItems();
+      showToast(`Filtered Item Shop for Set: "${targetSet}"`);
+    }
+
+    // Three.js Interactive 3D Viewport & .OBJ Mesh Transformer
+    let threeScene = null;
+    let threeCamera = null;
+    let threeRenderer = null;
+    let threeMesh = null;
+    let threeAutoRotate = true;
+    let isThreeInitialized = false;
+    let isDragging3d = false;
+    let previousPointerPos = { x: 0, y: 0 };
+
+    function initThreeJsViewport() {
+      const canvas = document.getElementById('cosmeticThreeCanvas');
+      const container = document.getElementById('threeJsCanvasContainer');
+      if (!canvas || !container || typeof THREE === 'undefined') return;
+
+      if (isThreeInitialized && threeRenderer) {
+        const width = container.clientWidth || 400;
+        const height = container.clientHeight || 260;
+        if (threeCamera) {
+          threeCamera.aspect = width / height;
+          threeCamera.updateProjectionMatrix();
+        }
+        threeRenderer.setSize(width, height);
+        return;
+      }
+
+      const width = container.clientWidth || 400;
+      const height = container.clientHeight || 260;
+
+      threeScene = new THREE.Scene();
+      threeCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      threeCamera.position.set(0, 0, 4.2);
+
+      threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+      threeRenderer.setSize(width, height);
+      threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      // Studio Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      threeScene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      keyLight.position.set(5, 8, 5);
+      threeScene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
+      fillLight.position.set(-5, -4, -3);
+      threeScene.add(fillLight);
+
+      // Interactive Orbit Drag Controls
+      const onPointerDown = (e) => {
+        isDragging3d = true;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        previousPointerPos = { x: clientX, y: clientY };
+      };
+
+      const onPointerMove = (e) => {
+        if (!isDragging3d || !threeMesh) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const deltaX = clientX - previousPointerPos.x;
+        const deltaY = clientY - previousPointerPos.y;
+
+        threeMesh.rotation.y += deltaX * 0.01;
+        threeMesh.rotation.x += deltaY * 0.01;
+
+        previousPointerPos = { x: clientX, y: clientY };
+      };
+
+      const onPointerUp = () => {
+        isDragging3d = false;
+      };
+
+      canvas.addEventListener('mousedown', onPointerDown);
+      window.addEventListener('mousemove', onPointerMove);
+      window.addEventListener('mouseup', onPointerUp);
+
+      canvas.addEventListener('touchstart', onPointerDown, { passive: true });
+      window.addEventListener('touchmove', onPointerMove, { passive: true });
+      window.addEventListener('touchend', onPointerUp);
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (!threeCamera) return;
+        threeCamera.position.z += e.deltaY * 0.005;
+        threeCamera.position.z = Math.max(2.0, Math.min(8.0, threeCamera.position.z));
+      }, { passive: false });
+
+      isThreeInitialized = true;
+      animateThree();
+    }
+
+    function animateThree() {
+      requestAnimationFrame(animateThree);
+      if (threeAutoRotate && !isDragging3d && threeMesh) {
+        threeMesh.rotation.y += 0.012;
+      }
+      if (threeRenderer && threeScene && threeCamera) {
+        threeRenderer.render(threeScene, threeCamera);
+      }
+    }
+
+    function loadModelForCosmetic(item) {
+      initThreeJsViewport();
+      if (!threeScene) return;
+
+      if (threeMesh) {
+        threeScene.remove(threeMesh);
+        if (threeMesh.geometry) threeMesh.geometry.dispose();
+        if (Array.isArray(threeMesh.material)) {
+          threeMesh.material.forEach(m => m.dispose());
+        } else if (threeMesh.material) {
+          threeMesh.material.dispose();
+        }
+        threeMesh = null;
+      }
+
+      const textureUrl = item.images?.featured || item.images?.icon || item.icon;
+      const textureLoader = new THREE.TextureLoader();
+      const geometry = new THREE.BoxGeometry(2.0, 2.0, 0.22, 4, 4, 2);
+
+      let rimColor = 0x3b82f6;
+      if (item.rarity_clean === 'legendary') rimColor = 0xf59e0b;
+      else if (item.rarity_clean === 'epic') rimColor = 0xa855f7;
+      else if (item.rarity_clean === 'rare') rimColor = 0x0ea5e9;
+      else if (item.rarity_clean === 'uncommon') rimColor = 0x22c55e;
+
+      const rimMaterial = new THREE.MeshStandardMaterial({
+        color: rimColor,
+        metalness: 0.85,
+        roughness: 0.25
+      });
+
+      if (textureUrl) {
+        textureLoader.load(
+          textureUrl,
+          (tex) => {
+            tex.anisotropy = 4;
+            const faceMaterial = new THREE.MeshStandardMaterial({
+              map: tex,
+              roughness: 0.35,
+              metalness: 0.1,
+              transparent: true
+            });
+
+            const materials = [
+              rimMaterial,
+              rimMaterial,
+              rimMaterial,
+              rimMaterial,
+              faceMaterial,
+              rimMaterial
+            ];
+
+            threeMesh = new THREE.Mesh(geometry, materials);
+            threeMesh.rotation.set(0, 0, 0);
+            threeScene.add(threeMesh);
+          },
+          undefined,
+          (err) => {
+            console.warn('Could not load 3D texture in Three.js viewport:', err);
+            const fallbackMat = new THREE.MeshStandardMaterial({ color: rimColor, wireframe: true });
+            threeMesh = new THREE.Mesh(geometry, fallbackMat);
+            threeScene.add(threeMesh);
+          }
+        );
+      } else {
+        const fallbackMat = new THREE.MeshStandardMaterial({ color: rimColor, wireframe: true });
+        threeMesh = new THREE.Mesh(geometry, fallbackMat);
+        threeScene.add(threeMesh);
+      }
+    }
+
+    function toggle3dWireframe() {
+      if (!threeMesh) return;
+      if (Array.isArray(threeMesh.material)) {
+        threeMesh.material.forEach(m => { m.wireframe = !m.wireframe; });
+      } else if (threeMesh.material) {
+        threeMesh.material.wireframe = !threeMesh.material.wireframe;
+      }
+    }
+
+    function toggle3dRotation() {
+      threeAutoRotate = !threeAutoRotate;
+      const btn = document.getElementById('btn3dRotateToggle');
+      if (btn) {
+        btn.innerText = threeAutoRotate ? '⏸️ Pause' : '▶️ Rotate';
+      }
+    }
+
+    function reset3dCamera() {
+      if (threeMesh) threeMesh.rotation.set(0, 0, 0);
+      if (threeCamera) threeCamera.position.set(0, 0, 4.2);
+    }
+
+    function getSafeItemName(item) {
+      return (item?.name || 'cosmetic').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    }
+
+    function exportCosmeticObj() {
+      if (!activeModalItem) {
+        showToast('No active cosmetic selected!');
+        return;
+      }
+      const safeName = getSafeItemName(activeModalItem);
+      const mtlName = `${safeName}.mtl`;
+      const w = 1.2, h = 1.2, d = 0.12;
+
+      const objContent = [
+        `# Wavefront .OBJ File`,
+        `# Exported from Ghost Fortnite Assistant`,
+        `# Model: ${activeModalItem.name} (${activeModalItem.item_type || 'Cosmetic'})`,
+        `mtllib ${mtlName}`,
+        `o ${safeName}`,
+        ``,
+        `# Vertices`,
+        `v ${-w} ${-h} ${d}`,
+        `v ${w} ${-h} ${d}`,
+        `v ${w} ${h} ${d}`,
+        `v ${-w} ${h} ${d}`,
+        `v ${-w} ${-h} ${-d}`,
+        `v ${w} ${-h} ${-d}`,
+        `v ${w} ${h} ${-d}`,
+        `v ${-w} ${h} ${-d}`,
+        ``,
+        `# Texture Coordinates`,
+        `vt 0.0000 0.0000`,
+        `vt 1.0000 0.0000`,
+        `vt 1.0000 1.0000`,
+        `vt 0.0000 1.0000`,
+        ``,
+        `# Normals`,
+        `vn 0.0000 0.0000 1.0000`,
+        `vn 0.0000 0.0000 -1.0000`,
+        `vn 0.0000 1.0000 0.0000`,
+        `vn 0.0000 -1.0000 0.0000`,
+        `vn 1.0000 0.0000 0.0000`,
+        `vn -1.0000 0.0000 0.0000`,
+        ``,
+        `# Front Face (Art Textured)`,
+        `usemtl FrontMat_${safeName}`,
+        `s 1`,
+        `f 1/1/1 2/2/1 3/3/1`,
+        `f 1/1/1 3/3/1 4/4/1`,
+        ``,
+        `# Back Face`,
+        `usemtl RimMat_${safeName}`,
+        `f 6/2/2 5/1/2 8/4/2`,
+        `f 6/2/2 8/4/2 7/3/2`,
+        ``,
+        `# Top Face`,
+        `f 4/4/3 3/3/3 7/2/3`,
+        `f 4/4/3 7/2/3 8/1/3`,
+        ``,
+        `# Bottom Face`,
+        `f 5/1/4 6/2/4 2/3/4`,
+        `f 5/1/4 2/3/4 1/4/4`,
+        ``,
+        `# Right Face`,
+        `f 2/1/5 6/2/5 7/3/5`,
+        `f 2/1/5 7/3/5 3/4/5`,
+        ``,
+        `# Left Face`,
+        `f 5/1/6 1/2/6 4/3/6`,
+        `f 5/1/6 4/3/6 8/4/6`
+      ].join('\n');
+
+      const blob = new Blob([objContent], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${safeName}.obj`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast(`Exported ${activeModalItem.name} as Wavefront .OBJ!`);
+    }
+
+    function downloadCosmeticMtl() {
+      if (!activeModalItem) {
+        showToast('No active cosmetic selected!');
+        return;
+      }
+      const safeName = getSafeItemName(activeModalItem);
+      const textureUrl = activeModalItem.images?.featured || activeModalItem.images?.icon || activeModalItem.icon || 'texture.png';
+
+      const mtlContent = [
+        `# Wavefront .MTL File`,
+        `# Exported from Ghost Fortnite Assistant`,
+        `# Material for: ${activeModalItem.name}`,
+        ``,
+        `newmtl FrontMat_${safeName}`,
+        `Ka 1.000 1.000 1.000`,
+        `Kd 1.000 1.000 1.000`,
+        `Ks 0.200 0.200 0.200`,
+        `Ns 50.0`,
+        `d 1.0`,
+        `illum 2`,
+        `map_Kd ${textureUrl}`,
+        ``,
+        `newmtl RimMat_${safeName}`,
+        `Ka 0.150 0.150 0.200`,
+        `Kd 0.300 0.350 0.450`,
+        `Ks 0.800 0.800 0.900`,
+        `Ns 120.0`,
+        `d 1.0`,
+        `illum 2`
+      ].join('\n');
+
+      const blob = new Blob([mtlContent], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${safeName}.mtl`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast(`Downloaded ${activeModalItem.name} .MTL Material!`);
     }
 
     function openCosmeticModal(itemId) {
@@ -2180,6 +2712,27 @@ def get_dashboard_html() -> str:
 
       const price = document.getElementById('inspectModalPrice');
       if (price) price.innerText = `🪙 ${(item.price || 0).toLocaleString()}`;
+
+      // Regular price & savings badge
+      const regPrice = item.regularPrice || item.regular_price || 0;
+      const curPrice = item.price || 0;
+      const savingsBadge = document.getElementById('inspectModalSavingsBadge');
+      const regPriceElem = document.getElementById('inspectModalRegularPrice');
+      if (regPrice > curPrice && curPrice > 0) {
+        const saved = regPrice - curPrice;
+        const pct = Math.round((saved / regPrice) * 100);
+        if (savingsBadge) {
+          savingsBadge.style.display = 'inline-block';
+          savingsBadge.innerText = `Save ${saved.toLocaleString()} 🪙 (${pct}% OFF)`;
+        }
+        if (regPriceElem) {
+          regPriceElem.style.display = 'inline';
+          regPriceElem.innerText = `🪙 ${regPrice.toLocaleString()}`;
+        }
+      } else {
+        if (savingsBadge) savingsBadge.style.display = 'none';
+        if (regPriceElem) regPriceElem.style.display = 'none';
+      }
 
       const name = document.getElementById('inspectModalName');
       if (name) name.innerText = item.name;
@@ -2228,6 +2781,39 @@ def get_dashboard_html() -> str:
         }
       }
 
+      // Detect Jam Track / Music vs 3D Cosmetic
+      const it = (item.item_type || '').toLowerCase();
+      const cat = (item.category || '').toLowerCase();
+      const isMusic = it.includes('jam track') || it.includes('music') || it.includes('track') || cat.includes('jam track') || cat.includes('music') || cat.includes('track');
+
+      const sec3d = document.getElementById('inspect3dSection');
+      const secMusic = document.getElementById('inspectMusicSection');
+
+      if (isMusic) {
+        if (sec3d) sec3d.style.display = 'none';
+        if (secMusic) {
+          secMusic.style.display = 'block';
+          const trackTitle = document.getElementById('musicTrackTitle');
+          if (trackTitle) trackTitle.innerText = item.name;
+          const trackArtist = document.getElementById('musicTrackArtist');
+          const artist = item.artist || (item.description ? item.description.replace(/^.*by\s+/i, '').replace(/\.$/, '') : 'Various Artists');
+          if (trackArtist) trackArtist.innerText = artist;
+          const ytLink = document.getElementById('musicSearchYoutube');
+          if (ytLink) ytLink.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(item.name + ' ' + artist + ' fortnite')}`;
+          const spLink = document.getElementById('musicSearchSpotify');
+          if (spLink) spLink.href = `https://open.spotify.com/search/${encodeURIComponent(item.name + ' ' + artist)}`;
+        }
+      } else {
+        if (secMusic) secMusic.style.display = 'none';
+        if (sec3d) {
+          sec3d.style.display = 'block';
+          loadModelForCosmetic(item);
+        }
+      }
+
+      // Render Squad Hype Ratings / Community Votes
+      renderCosmeticVotes(item.id || item.name);
+
       const variantsBox = document.getElementById('inspectVariantsBox');
       const variantsList = document.getElementById('inspectVariantsList');
       if (variantsBox && variantsList) {
@@ -2267,6 +2853,7 @@ def get_dashboard_html() -> str:
       const modal = document.getElementById('cosmeticInspectModal');
       if (modal) modal.classList.remove('open');
       activeModalItem = null;
+      isDragging3d = false;
     }
 
     function updateModalWishlistBtn() {
@@ -2321,26 +2908,72 @@ def get_dashboard_html() -> str:
     }
 
     function switchMapView(mode) {
+      const interactiveWrapper = document.getElementById('interactiveMapWrapper');
+      const staticWrapper = document.getElementById('staticMapWrapper');
       const img = document.getElementById('islandMapImg');
+      const interactiveBtn = document.getElementById('mapViewInteractiveBtn');
       const poiBtn = document.getElementById('mapViewPoiBtn');
       const cleanBtn = document.getElementById('mapViewCleanBtn');
 
-      if (mode === 'clean' && mapImages.blank) {
-        img.src = mapImages.blank;
-        cleanBtn.style.background = 'rgba(0, 168, 255, 0.2)';
-        cleanBtn.style.borderColor = 'var(--accent)';
-        cleanBtn.style.color = 'var(--accent)';
-        poiBtn.style.background = '';
-        poiBtn.style.borderColor = '';
-        poiBtn.style.color = '';
+      [interactiveBtn, poiBtn, cleanBtn].forEach(b => {
+        if (b) {
+          b.style.background = '';
+          b.style.borderColor = '';
+          b.style.color = '';
+        }
+      });
+
+      if (mode === 'interactive') {
+        if (interactiveWrapper) interactiveWrapper.style.display = 'flex';
+        if (staticWrapper) staticWrapper.style.display = 'none';
+        if (interactiveBtn) {
+          interactiveBtn.style.background = 'rgba(0, 168, 255, 0.2)';
+          interactiveBtn.style.borderColor = 'var(--accent)';
+          interactiveBtn.style.color = 'var(--accent)';
+        }
+      } else if (mode === 'clean') {
+        if (interactiveWrapper) interactiveWrapper.style.display = 'none';
+        if (staticWrapper) staticWrapper.style.display = 'flex';
+        if (img && mapImages.blank) img.src = mapImages.blank;
+        if (cleanBtn) {
+          cleanBtn.style.background = 'rgba(0, 168, 255, 0.2)';
+          cleanBtn.style.borderColor = 'var(--accent)';
+          cleanBtn.style.color = 'var(--accent)';
+        }
       } else {
-        img.src = mapImages.pois || 'https://fortnite-api.com/images/map_en.png';
-        poiBtn.style.background = 'rgba(0, 168, 255, 0.2)';
-        poiBtn.style.borderColor = 'var(--accent)';
-        poiBtn.style.color = 'var(--accent)';
-        cleanBtn.style.background = '';
-        cleanBtn.style.borderColor = '';
-        cleanBtn.style.color = '';
+        // mode === 'poi'
+        if (interactiveWrapper) interactiveWrapper.style.display = 'none';
+        if (staticWrapper) staticWrapper.style.display = 'flex';
+        if (img) img.src = mapImages.pois || 'https://fortnite-api.com/images/map_en.png';
+        if (poiBtn) {
+          poiBtn.style.background = 'rgba(0, 168, 255, 0.2)';
+          poiBtn.style.borderColor = 'var(--accent)';
+          poiBtn.style.color = 'var(--accent)';
+        }
+      }
+    }
+
+    function toggleMapFullscreen() {
+      const container = document.getElementById('mapCardContainer') || document.getElementById('interactiveMapWrapper');
+      if (!container) return;
+      if (!document.fullscreenElement) {
+        if (container.requestFullscreen) {
+          container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+          container.webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    function reloadMapIframe() {
+      const iframe = document.getElementById('fortniteGgIframe');
+      if (iframe) {
+        iframe.src = 'https://fortnite.gg/?t=' + Date.now();
+        showToast('Reloading Fortnite.gg interactive map...');
       }
     }
 
