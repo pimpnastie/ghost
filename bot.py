@@ -80,8 +80,10 @@ class FortniteBot(commands.Bot):
         self.fortnite = FortniteClient()
         self._web_runner = None
         self._squad_stats_cache = {"timestamp": 0, "data": []}
+        self._squad_refresh_lock = asyncio.Lock()
         self._shop_cache = {"timestamp": 0, "data": None}
         self._map_cache = {"timestamp": 0, "data": None}
+        self._news_cache = {"timestamp": 0, "data": None}
         self._link_codes: Dict[str, Dict[str, Any]] = {}
         self._session_state: Dict[str, Any] = {"date": "", "baseline": {}, "last_win": None, "started_at": "Evening"}
 
@@ -211,128 +213,133 @@ class FortniteBot(commands.Bot):
             "player_deltas": player_deltas
         }
 
-    async def refresh_squad_telemetry(self) -> List[Dict[str, Any]]:
-        """Concurrently fetches stats for all tracked squad members and updates persistent cache."""
-        players = await get_all_linked_users_list()
-        existing_map = {x.get("epic_name", "").lower(): x for x in self._squad_stats_cache.get("data", []) if not x.get("error")}
-        sem = asyncio.Semaphore(2)
+    async def refresh_squad_telemetry(self, bypass_cache: bool = False) -> List[Dict[str, Any]]:
+        """Concurrently fetches stats for all tracked squad members and updates persistent cache with mutex coalescing."""
+        async with self._squad_refresh_lock:
+            now = time.time()
+            if not bypass_cache and self._squad_stats_cache.get("data") and (now - self._squad_stats_cache.get("timestamp", 0) < 180):
+                return self._squad_stats_cache["data"]
 
-        async def fetch_one(p):
-            ename = p.get("epic_username")
-            did = p.get("discord_user_id")
-            acc_type = p.get("account_type", "epic")
-            discord_tag = None
-            if did:
-                u = self.get_user(int(did))
-                discord_tag = str(u) if u else None
+            players = await get_all_linked_users_list()
+            existing_map = {x.get("epic_name", "").lower(): x for x in self._squad_stats_cache.get("data", []) if not x.get("error")}
+            sem = asyncio.Semaphore(2)
 
-            async with sem:
-                for attempt in range(3):
-                    try:
-                        stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime")
-                        bp = stats.get("battlePass", {}).get("level", 1)
-                        all_stats = stats.get("stats", {}).get("all", {})
-                        overall = all_stats.get("overall", {})
-                        solo = all_stats.get("solo", {})
-                        duo = all_stats.get("duo", {})
-                        squad = all_stats.get("squad", {})
-                        gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
-                        kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
-                        return {
-                            "discord_id": did,
-                            "discord_tag": discord_tag,
-                            "epic_name": ename,
-                            "account_type": acc_type,
-                            "bp_level": bp,
-                            "overall": {
-                                "wins": overall.get("wins", 0),
-                                "kills": overall.get("kills", 0),
-                                "kd": overall.get("kd", 0.0),
-                                "winRate": overall.get("winRate", 0.0),
-                                "matches": overall.get("matches", 0),
-                                "top3": overall.get("top3", 0),
-                                "top5": overall.get("top5", 0),
-                                "top6": overall.get("top6", 0),
-                                "top10": overall.get("top10", 0),
-                                "top12": overall.get("top12", 0),
-                                "top25": overall.get("top25", 0),
-                                "killsPerMatch": overall.get("killsPerMatch", 0.0),
-                                "playersOutlived": overall.get("playersOutlived", 0),
-                                "minutesPlayed": overall.get("minutesPlayed", 0),
-                                "score": overall.get("score", 0),
-                            },
-                            "solo": solo,
-                            "duo": duo,
-                            "squad": squad,
-                            "gamepad": {
-                                "matches": gamepad.get("matches", 0),
-                                "wins": gamepad.get("wins", 0),
-                                "kills": gamepad.get("kills", 0),
-                                "kd": gamepad.get("kd", 0.0)
-                            },
-                            "kbm": {
-                                "matches": kbm.get("matches", 0),
-                                "wins": kbm.get("wins", 0),
-                                "kills": kbm.get("kills", 0),
-                                "kd": kbm.get("kd", 0.0)
-                            },
-                            "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
-                            "has_kbm": bool(kbm.get("matches", 0) > 0),
-                            "is_private": False
-                        }
-                    except FortniteAPIError as fe:
-                        if fe.status_code == 429 and attempt < 2:
-                            await asyncio.sleep(1.5 * (attempt + 1))
-                            continue
-                        if existing_map.get(ename.lower()) and fe.status_code != 403:
-                            logger.info(f"Preserving cached stats for {ename} due to rate limit/error: {fe}")
-                            cached_res = existing_map[ename.lower()].copy()
-                            cached_res["discord_id"] = did
-                            cached_res["discord_tag"] = discord_tag
-                            return cached_res
-                        is_priv = fe.status_code == 403 or "private" in str(fe).lower()
-                        return {
-                            "discord_id": did,
-                            "discord_tag": discord_tag,
-                            "epic_name": ename,
-                            "account_type": acc_type,
-                            "error": str(fe),
-                            "is_private": is_priv
-                        }
-                    except Exception as err:
-                        if existing_map.get(ename.lower()):
-                            logger.info(f"Preserving cached stats for {ename} due to exception: {err}")
-                            cached_res = existing_map[ename.lower()].copy()
-                            cached_res["discord_id"] = did
-                            cached_res["discord_tag"] = discord_tag
-                            return cached_res
-                        is_priv = "private" in str(err).lower()
-                        return {
-                            "discord_id": did,
-                            "discord_tag": discord_tag,
-                            "epic_name": ename,
-                            "account_type": acc_type,
-                            "error": str(err),
-                            "is_private": is_priv
-                        }
-                    finally:
-                        await asyncio.sleep(0.3)
+            async def fetch_one(p):
+                ename = p.get("epic_username")
+                did = p.get("discord_user_id")
+                acc_type = p.get("account_type", "epic")
+                discord_tag = None
+                if did:
+                    u = self.get_user(int(did))
+                    discord_tag = str(u) if u else None
 
-        results = await asyncio.gather(*[fetch_one(p) for p in players])
-        now = time.time()
-        edt = timezone(timedelta(hours=-4))
-        last_up = datetime.now(edt).strftime("%I:%M %p EDT")
-        cache_obj = {
-            "timestamp": now,
-            "last_updated_str": last_up,
-            "data": results
-        }
-        self._squad_stats_cache = cache_obj
-        try:
-            await set_bot_state("squad_stats_cache", json.dumps(cache_obj))
-        except Exception as e:
-            logger.debug(f"Could not persist squad stats cache: {e}")
-        return results
+                async with sem:
+                    for attempt in range(3):
+                        try:
+                            stats = await self.fortnite.get_player_stats(name=ename, account_type=acc_type, time_window="lifetime", bypass_cache=bypass_cache)
+                            bp = stats.get("battlePass", {}).get("level", 1)
+                            all_stats = stats.get("stats", {}).get("all", {})
+                            overall = all_stats.get("overall", {})
+                            solo = all_stats.get("solo", {})
+                            duo = all_stats.get("duo", {})
+                            squad = all_stats.get("squad", {})
+                            gamepad = stats.get("stats", {}).get("gamepad", {}).get("overall", {})
+                            kbm = stats.get("stats", {}).get("keyboardMouse", {}).get("overall", {})
+                            return {
+                                "discord_id": did,
+                                "discord_tag": discord_tag,
+                                "epic_name": ename,
+                                "account_type": acc_type,
+                                "bp_level": bp,
+                                "overall": {
+                                    "wins": overall.get("wins", 0),
+                                    "kills": overall.get("kills", 0),
+                                    "kd": overall.get("kd", 0.0),
+                                    "winRate": overall.get("winRate", 0.0),
+                                    "matches": overall.get("matches", 0),
+                                    "top3": overall.get("top3", 0),
+                                    "top5": overall.get("top5", 0),
+                                    "top6": overall.get("top6", 0),
+                                    "top10": overall.get("top10", 0),
+                                    "top12": overall.get("top12", 0),
+                                    "top25": overall.get("top25", 0),
+                                    "killsPerMatch": overall.get("killsPerMatch", 0.0),
+                                    "playersOutlived": overall.get("playersOutlived", 0),
+                                    "minutesPlayed": overall.get("minutesPlayed", 0),
+                                    "score": overall.get("score", 0),
+                                },
+                                "solo": solo,
+                                "duo": duo,
+                                "squad": squad,
+                                "gamepad": {
+                                    "matches": gamepad.get("matches", 0),
+                                    "wins": gamepad.get("wins", 0),
+                                    "kills": gamepad.get("kills", 0),
+                                    "kd": gamepad.get("kd", 0.0)
+                                },
+                                "kbm": {
+                                    "matches": kbm.get("matches", 0),
+                                    "wins": kbm.get("wins", 0),
+                                    "kills": kbm.get("kills", 0),
+                                    "kd": kbm.get("kd", 0.0)
+                                },
+                                "has_controller": bool(gamepad.get("matches", 0) > 0 or acc_type in ["psn", "xbl"]),
+                                "has_kbm": bool(kbm.get("matches", 0) > 0),
+                                "is_private": False
+                            }
+                        except FortniteAPIError as fe:
+                            if fe.status_code == 429 and attempt < 2:
+                                await asyncio.sleep(1.5 * (attempt + 1))
+                                continue
+                            if existing_map.get(ename.lower()) and fe.status_code != 403:
+                                logger.info(f"Preserving cached stats for {ename} due to rate limit/error: {fe}")
+                                cached_res = existing_map[ename.lower()].copy()
+                                cached_res["discord_id"] = did
+                                cached_res["discord_tag"] = discord_tag
+                                return cached_res
+                            is_priv = fe.status_code == 403 or "private" in str(fe).lower()
+                            return {
+                                "discord_id": did,
+                                "discord_tag": discord_tag,
+                                "epic_name": ename,
+                                "account_type": acc_type,
+                                "error": str(fe),
+                                "is_private": is_priv
+                            }
+                        except Exception as err:
+                            if existing_map.get(ename.lower()):
+                                logger.info(f"Preserving cached stats for {ename} due to exception: {err}")
+                                cached_res = existing_map[ename.lower()].copy()
+                                cached_res["discord_id"] = did
+                                cached_res["discord_tag"] = discord_tag
+                                return cached_res
+                            is_priv = "private" in str(err).lower()
+                            return {
+                                "discord_id": did,
+                                "discord_tag": discord_tag,
+                                "epic_name": ename,
+                                "account_type": acc_type,
+                                "error": str(err),
+                                "is_private": is_priv
+                            }
+                        finally:
+                            await asyncio.sleep(0.3)
+
+            results = await asyncio.gather(*[fetch_one(p) for p in players])
+            now = time.time()
+            edt = timezone(timedelta(hours=-4))
+            last_up = datetime.now(edt).strftime("%I:%M %p EDT")
+            cache_obj = {
+                "timestamp": now,
+                "last_updated_str": last_up,
+                "data": results
+            }
+            self._squad_stats_cache = cache_obj
+            try:
+                await set_bot_state("squad_stats_cache", json.dumps(cache_obj))
+            except Exception as e:
+                logger.debug(f"Could not persist squad stats cache: {e}")
+            return results
 
     async def setup_hook(self):
         logger.info("Initializing database...")
@@ -463,28 +470,38 @@ class FortniteBot(commands.Bot):
             async def api_squad_stats(request):
                 force = request.query.get("refresh") == "1"
                 now = time.time()
-                # Return cached data if present and not forced
+                # Return cached data immediately if present and not forced
                 if not force and self._squad_stats_cache.get("data"):
                     cached_data = self._squad_stats_cache["data"]
                     last_updated = self._squad_stats_cache.get("last_updated_str", "Active Cache")
                     session_info = self.compute_session_stats(cached_data)
-                    return web.json_response({
+
+                    # Non-blocking stale-while-revalidate background refresh if older than 5 minutes
+                    cache_ts = self._squad_stats_cache.get("timestamp", 0)
+                    if now - cache_ts > 300:
+                        asyncio.create_task(self.refresh_squad_telemetry())
+
+                    resp = web.json_response({
                         "squad": cached_data,
                         "session": session_info,
                         "last_updated": last_updated,
                         "cached": True
                     })
+                    resp.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+                    return resp
 
-                # Refresh live via parallel fetch
-                results = await self.refresh_squad_telemetry()
+                # Refresh live via coalesced parallel fetch
+                results = await self.refresh_squad_telemetry(bypass_cache=force)
                 last_updated = self._squad_stats_cache.get("last_updated_str", "Just now")
                 session_info = self.compute_session_stats(results)
-                return web.json_response({
+                resp = web.json_response({
                     "squad": results,
                     "session": session_info,
                     "last_updated": last_updated,
                     "cached": False
                 })
+                resp.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+                return resp
 
             async def api_admin_verify(request):
                 try:
@@ -527,11 +544,13 @@ class FortniteBot(commands.Bot):
             async def api_live_shop(request):
                 force = request.query.get("refresh") == "1"
                 now = time.time()
-                if not force and (now - self._shop_cache["timestamp"] < 3600) and self._shop_cache["data"]:
-                    return web.json_response(self._shop_cache["data"])
+                if not force and (now - self._shop_cache["timestamp"] < 900) and self._shop_cache["data"]:
+                    resp = web.json_response(self._shop_cache["data"])
+                    resp.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+                    return resp
 
                 try:
-                    shop_data = await self.fortnite.get_shop()
+                    shop_data = await self.fortnite.get_shop(bypass_cache=force)
                     entries = shop_data.get("entries", [])
                     parsed_items = []
                     shop_date_str = str(shop_data.get("date", ""))[:10]
@@ -645,8 +664,15 @@ class FortniteBot(commands.Bot):
                         "items": parsed_items
                     }
                     self._shop_cache = {"timestamp": now, "data": resp_data}
-                    return web.json_response(resp_data)
+                    resp = web.json_response(resp_data)
+                    resp.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+                    return resp
                 except Exception as e:
+                    if self._shop_cache.get("data"):
+                        logger.warning(f"Shop API error ({e}), serving cached shop data.")
+                        resp = web.json_response(self._shop_cache["data"])
+                        resp.headers["Cache-Control"] = "public, max-age=60"
+                        return resp
                     return web.json_response({"error": str(e)}, status=500)
 
             async def api_link_code_generate(request):
@@ -691,12 +717,23 @@ class FortniteBot(commands.Bot):
                         map_data = self._map_cache["data"]
 
                     custom_pois = await get_custom_pois()
-                    return web.json_response({
+                    resp = web.json_response({
                         "images": map_data.get("images", {}),
                         "pois": map_data.get("pois", []),
                         "custom_pois": custom_pois
                     })
+                    resp.headers["Cache-Control"] = "public, max-age=1800, stale-while-revalidate=3600"
+                    return resp
                 except Exception as e:
+                    if self._map_cache.get("data"):
+                        custom_pois = await get_custom_pois()
+                        resp = web.json_response({
+                            "images": self._map_cache["data"].get("images", {}),
+                            "pois": self._map_cache["data"].get("pois", []),
+                            "custom_pois": custom_pois
+                        })
+                        resp.headers["Cache-Control"] = "public, max-age=60"
+                        return resp
                     return web.json_response({"error": str(e)}, status=500)
 
             async def api_pois_custom_post(request):
@@ -741,9 +778,20 @@ class FortniteBot(commands.Bot):
 
             async def api_live_news(request):
                 try:
-                    news_data = await self.fortnite.get_news()
-                    return web.json_response(news_data)
+                    now = time.time()
+                    if not self._news_cache["data"] or (now - self._news_cache["timestamp"] > 900):
+                        news_data = await self.fortnite.get_news()
+                        self._news_cache = {"timestamp": now, "data": news_data}
+                    else:
+                        news_data = self._news_cache["data"]
+                    resp = web.json_response(news_data)
+                    resp.headers["Cache-Control"] = "public, max-age=600, stale-while-revalidate=1200"
+                    return resp
                 except Exception as e:
+                    if self._news_cache.get("data"):
+                        resp = web.json_response(self._news_cache["data"])
+                        resp.headers["Cache-Control"] = "public, max-age=60"
+                        return resp
                     return web.json_response({"error": str(e)}, status=500)
 
             async def api_players_get(request):

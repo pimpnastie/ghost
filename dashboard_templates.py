@@ -1002,7 +1002,7 @@ def get_dashboard_html() -> str:
         <!-- Interactive Fortnite.gg Embed -->
         <div id="interactiveMapWrapper" style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
           <div style="position: relative; width: 100%; height: 750px; border-radius: 12px; overflow: hidden; border: 1px solid var(--card-border); box-shadow: 0 8px 30px rgba(0,0,0,0.5);">
-            <iframe id="fortniteGgIframe" src="https://fortnite.gg/" style="width: 100%; height: 100%; border: none;" allowfullscreen loading="lazy"></iframe>
+            <iframe id="fortniteGgIframe" src="about:blank" data-src="https://fortnite.gg/" style="width: 100%; height: 100%; border: none;" allowfullscreen loading="lazy"></iframe>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); padding: 4px 8px; flex-wrap: wrap; gap: 6px;">
             <span>⚡ Powered by <strong>Fortnite.gg</strong> — filter live chest spawns, reboot vans, NPCs, boss vaults, and vehicles.</span>
@@ -1421,7 +1421,10 @@ def get_dashboard_html() -> str:
 
       if (tabId === 'squad') loadSquadStats();
       if (tabId === 'shop') loadLiveShop();
-      if (tabId === 'map') loadMap();
+      if (tabId === 'map') {
+        ensureMapIframeLoaded();
+        loadMap();
+      }
       if (tabId === 'news') loadNews();
       if (tabId === 'channels') loadChannels();
     }
@@ -2081,56 +2084,108 @@ def get_dashboard_html() -> str:
       filterSquadCards();
     }
 
+    function bindSquadSessionBanner(session) {
+      const banner = document.getElementById('squadSessionBanner');
+      if (!banner) return;
+      if (!session) {
+        banner.style.display = 'none';
+        return;
+      }
+      banner.style.display = 'flex';
+      const winsElem = document.getElementById('sessionWins');
+      const killsElem = document.getElementById('sessionKills');
+      const matchesElem = document.getElementById('sessionMatches');
+      const mvpBox = document.getElementById('sessionMvpBox');
+      const mvpElem = document.getElementById('sessionMvp');
+      const lastWinElem = document.getElementById('sessionLastWinText');
+
+      if (winsElem) winsElem.innerText = `+${session.wins || 0}`;
+      if (killsElem) killsElem.innerText = `+${session.kills || 0}`;
+      if (matchesElem) matchesElem.innerText = `+${session.matches || 0}`;
+
+      if (session.mvp && session.mvp_wins > 0) {
+        if (mvpBox) mvpBox.style.display = 'flex';
+        if (mvpElem) mvpElem.innerText = `👑 ${session.mvp} (+${session.mvp_wins})`;
+      } else if (mvpBox) {
+        mvpBox.style.display = 'none';
+      }
+
+      if (lastWinElem) {
+        if (session.last_win) {
+          const lw = session.last_win;
+          const timeStr = lw.time ? new Date(lw.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          lastWinElem.innerHTML = `🏆 Latest Victory Royale: <strong style="color: var(--gold);">${lw.player}</strong> (${lw.mode || 'Battle Royale'}${timeStr ? ' at ' + timeStr : ''})`;
+        } else {
+          lastWinElem.innerHTML = `🏆 Last Win: <strong>None yet tonight</strong>`;
+        }
+      }
+    }
+
     async function loadSquadStats(force = false) {
       const container = document.getElementById('squadContainer');
-      container.innerHTML = '<p style="color: var(--text-muted);">Fetching detailed squad telemetry...</p>';
+      const statusElem = document.getElementById('squadCacheStatus');
+
+      // 1. Instant Cache Render (Stale-While-Revalidate)
+      let hasRenderedCache = false;
+      try {
+        const cachedRaw = localStorage.getItem('ghost_squad_cache');
+        if (cachedRaw) {
+          const cachedData = JSON.parse(cachedRaw);
+          const cachedSquad = Array.isArray(cachedData) ? cachedData : (cachedData.squad || []);
+          if (cachedSquad.length > 0) {
+            lastSquadData = cachedSquad;
+            bindSquadSessionBanner(cachedData.session);
+            renderSquadCards(cachedSquad);
+            hasRenderedCache = true;
+            if (statusElem) statusElem.innerText = '• ' + (cachedData.last_updated ? cachedData.last_updated + ' (local cache)' : 'Local Cache');
+          }
+        }
+      } catch (err) {
+        console.warn('Squad local cache read error:', err);
+      }
+
+      if (!hasRenderedCache) {
+        container.innerHTML = '<p style="color: var(--text-muted);">Fetching detailed squad telemetry from Fortnite API...</p>';
+      }
+
+      // 2. Fetch fresh data in background with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       try {
         const url = force ? '/api/squad-stats?refresh=1' : '/api/squad-stats';
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const resData = await res.json();
         const squad = Array.isArray(resData) ? resData : (resData.squad || []);
         lastSquadData = squad;
-        const lastUpdated = resData.last_updated || 'Cached';
-        const statusElem = document.getElementById('squadCacheStatus');
+        localStorage.setItem('ghost_squad_cache', JSON.stringify(resData));
+
+        const lastUpdated = resData.last_updated || 'Live';
         if (statusElem) statusElem.innerText = '• ' + lastUpdated;
 
-        // Tonight's Squad Session Banner Data Binding
-        const session = resData.session;
-        const banner = document.getElementById('squadSessionBanner');
-        if (session && banner) {
-          banner.style.display = 'flex';
-          const winsElem = document.getElementById('sessionWins');
-          const killsElem = document.getElementById('sessionKills');
-          const matchesElem = document.getElementById('sessionMatches');
-          const mvpBox = document.getElementById('sessionMvpBox');
-          const mvpElem = document.getElementById('sessionMvp');
-          const lastWinElem = document.getElementById('sessionLastWinText');
-
-          if (winsElem) winsElem.innerText = `+${session.wins || 0}`;
-          if (killsElem) killsElem.innerText = `+${session.kills || 0}`;
-          if (matchesElem) matchesElem.innerText = `+${session.matches || 0}`;
-
-          if (session.mvp && session.mvp_wins > 0) {
-            if (mvpBox) mvpBox.style.display = 'flex';
-            if (mvpElem) mvpElem.innerText = `👑 ${session.mvp} (+${session.mvp_wins})`;
-          } else if (mvpBox) {
-            mvpBox.style.display = 'none';
-          }
-
-          if (lastWinElem) {
-            if (session.last_win) {
-              const lw = session.last_win;
-              const timeStr = lw.time ? new Date(lw.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-              lastWinElem.innerHTML = `🏆 Latest Victory Royale: <strong style="color: var(--gold);">${lw.player}</strong> (${lw.mode || 'Battle Royale'}${timeStr ? ' at ' + timeStr : ''})`;
-            } else {
-              lastWinElem.innerHTML = `🏆 Last Win: <strong>None yet tonight</strong>`;
-            }
-          }
-        }
-
+        bindSquadSessionBanner(resData.session);
         renderSquadCards(squad);
       } catch (e) {
-        container.innerHTML = `<p style="color: var(--error);">Error loading squad stats: ${e}</p>`;
+        clearTimeout(timeoutId);
+        console.warn('Squad telemetry refresh notice:', e);
+        if (!hasRenderedCache) {
+          const isTimeout = e.name === 'AbortError';
+          container.innerHTML = `
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 18px; color: var(--text-main); margin-top: 10px;">
+              <p style="color: var(--error); margin: 0 0 8px 0; font-weight: 600;">
+                ${isTimeout ? '⏳ Server Waking Up (Cold Start)' : '⚠️ Squad Telemetry Unavailable'}
+              </p>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0 0 14px 0;">
+                ${isTimeout ? 'The server is warming up or rate-limited. Please retry in a few seconds.' : (e.message || e)}
+              </p>
+              <button class="btn btn-secondary" onclick="loadSquadStats(true)">🔄 Retry Squad Load</button>
+            </div>
+          `;
+        } else if (statusElem) {
+          statusElem.innerText += ' (refresh delayed)';
+        }
       }
     }
 
@@ -2164,22 +2219,61 @@ def get_dashboard_html() -> str:
 
     async function loadLiveShop() {
       const container = document.getElementById('shopContainer');
-      container.innerHTML = '<p style="color: var(--text-muted);">Loading live item shop from Fortnite-API...</p>';
+
+      // 1. Instant Cache Render (Stale-While-Revalidate)
+      let hasRenderedCache = false;
       try {
-        const res = await fetch('/api/live-shop');
+        const cachedRaw = localStorage.getItem('ghost_shop_cache');
+        if (cachedRaw) {
+          const cachedData = JSON.parse(cachedRaw);
+          rawShopItems = cachedData.items || [];
+          if (rawShopItems.length > 0) {
+            const dateStr = cachedData.date ? cachedData.date.slice(0, 10) : 'Today';
+            const hashStr = cachedData.hash ? cachedData.hash.slice(0, 10) : 'Latest';
+            const newCount = cachedData.new_total || rawShopItems.filter(i => i.is_new).length;
+            const metaElem = document.getElementById('shopMetaDate');
+            if (metaElem) metaElem.innerText = `Date: ${dateStr} • Hash: ${hashStr} • Total Items: ${rawShopItems.length} (${newCount} new today) [Cached]`;
+            const badgeElem = document.getElementById('newItemsBadge');
+            if (badgeElem) badgeElem.innerText = newCount;
+            filterShopItems();
+            hasRenderedCache = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Shop local cache read error:', err);
+      }
+
+      if (!hasRenderedCache) {
+        container.innerHTML = '<p style="color: var(--text-muted);">Loading live item shop from Fortnite-API...</p>';
+      }
+
+      // 2. Fetch fresh data
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        const res = await fetch('/api/live-shop', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         rawShopItems = data.items || [];
+        localStorage.setItem('ghost_shop_cache', JSON.stringify(data));
 
         const dateStr = data.date ? data.date.slice(0, 10) : 'Today';
         const hashStr = data.hash ? data.hash.slice(0, 10) : 'Latest';
         const newCount = data.new_total || rawShopItems.filter(i => i.is_new).length;
-        document.getElementById('shopMetaDate').innerText = `Date: ${dateStr} • Hash: ${hashStr} • Total Items: ${rawShopItems.length} (${newCount} new today)`;
+        const metaElem = document.getElementById('shopMetaDate');
+        if (metaElem) metaElem.innerText = `Date: ${dateStr} • Hash: ${hashStr} • Total Items: ${rawShopItems.length} (${newCount} new today)`;
         const badgeElem = document.getElementById('newItemsBadge');
         if (badgeElem) badgeElem.innerText = newCount;
 
         filterShopItems();
       } catch (e) {
-        container.innerHTML = `<p style="color: var(--error);">Error loading shop: ${e}</p>`;
+        clearTimeout(timeoutId);
+        console.warn('Shop refresh notice:', e);
+        if (!hasRenderedCache) {
+          container.innerHTML = `<p style="color: var(--error);">Error loading shop: ${e.message || e}</p>`;
+        }
       }
     }
 
@@ -2634,7 +2728,7 @@ def get_dashboard_html() -> str:
         `# Left Face`,
         `f 5/1/6 1/2/6 4/3/6`,
         `f 5/1/6 4/3/6 8/4/6`
-      ].join('\n');
+      ].join('\\n');
 
       const blob = new Blob([objContent], { type: 'text/plain;charset=utf-8' });
       const a = document.createElement('a');
@@ -2675,7 +2769,7 @@ def get_dashboard_html() -> str:
         `Ns 120.0`,
         `d 1.0`,
         `illum 2`
-      ].join('\n');
+      ].join('\\n');
 
       const blob = new Blob([mtlContent], { type: 'text/plain;charset=utf-8' });
       const a = document.createElement('a');
@@ -2888,22 +2982,60 @@ def get_dashboard_html() -> str:
     let customPois = [];
     let selectedDropTarget = null;
 
+    function ensureMapIframeLoaded() {
+      const iframe = document.getElementById('fortniteGgIframe');
+      if (iframe && iframe.getAttribute('data-src')) {
+        const targetSrc = iframe.getAttribute('data-src');
+        if (!iframe.src || iframe.src === 'about:blank' || !iframe.src.includes('fortnite.gg')) {
+          iframe.src = targetSrc;
+        }
+      }
+    }
+
     async function loadMap() {
+      // 1. Instant Cache Render (Stale-While-Revalidate)
       try {
-        const res = await fetch('/api/live-map');
+        const cachedRaw = localStorage.getItem('ghost_map_cache');
+        if (cachedRaw) {
+          const cdata = JSON.parse(cachedRaw);
+          mapImages = cdata.images || {};
+          islandPois = (cdata.pois || []).filter(p => p.name);
+          customPois = cdata.custom_pois || [];
+          if (mapImages.pois) {
+            const img = document.getElementById('islandMapImg');
+            if (img && (!img.src || img.src.includes('about:blank'))) img.src = mapImages.pois;
+          }
+          renderCustomPois();
+          renderOfficialPois(islandPois);
+        }
+      } catch (err) {
+        console.warn('Map local cache read error:', err);
+      }
+
+      // 2. Fetch fresh data
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        const res = await fetch('/api/live-map', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         mapImages = data.images || {};
         islandPois = (data.pois || []).filter(p => p.name);
         customPois = data.custom_pois || [];
+        localStorage.setItem('ghost_map_cache', JSON.stringify(data));
 
         if (mapImages.pois) {
-          document.getElementById('islandMapImg').src = mapImages.pois;
+          const img = document.getElementById('islandMapImg');
+          if (img) img.src = mapImages.pois;
         }
 
         renderCustomPois();
         renderOfficialPois(islandPois);
       } catch (e) {
-        console.error('Map error:', e);
+        clearTimeout(timeoutId);
+        console.error('Map fetch error:', e);
       }
     }
 
@@ -2924,6 +3056,7 @@ def get_dashboard_html() -> str:
       });
 
       if (mode === 'interactive') {
+        ensureMapIframeLoaded();
         if (interactiveWrapper) interactiveWrapper.style.display = 'flex';
         if (staticWrapper) staticWrapper.style.display = 'none';
         if (interactiveBtn) {
@@ -3147,11 +3280,43 @@ def get_dashboard_html() -> str:
 
     async function loadNews() {
       const container = document.getElementById('newsContainer');
-      container.innerHTML = '<p style="color: var(--text-muted);">Fetching news...</p>';
+      let hasRenderedCache = false;
       try {
-        const res = await fetch('/api/live-news');
+        const cachedRaw = localStorage.getItem('ghost_news_cache');
+        if (cachedRaw) {
+          const cdata = JSON.parse(cachedRaw);
+          const motds = cdata.motds || [];
+          if (motds.length > 0) {
+            container.innerHTML = motds.map(n => `
+              <div class="news-card">
+                ${n.image ? `<img src="${n.image}" loading="lazy">` : ''}
+                <div class="news-body">
+                  <div class="news-title">${n.title || n.tabTitle || 'News'}</div>
+                  <div class="news-text">${n.body || ''}</div>
+                </div>
+              </div>
+            `).join('');
+            hasRenderedCache = true;
+          }
+        }
+      } catch (err) {
+        console.warn('News local cache error:', err);
+      }
+
+      if (!hasRenderedCache) {
+        container.innerHTML = '<p style="color: var(--text-muted);">Fetching news...</p>';
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        const res = await fetch('/api/live-news', { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const motds = data.motds || [];
+        localStorage.setItem('ghost_news_cache', JSON.stringify(data));
         container.innerHTML = motds.map(n => `
           <div class="news-card">
             ${n.image ? `<img src="${n.image}" loading="lazy">` : ''}
@@ -3162,7 +3327,10 @@ def get_dashboard_html() -> str:
           </div>
         `).join('');
       } catch (e) {
-        container.innerHTML = `<p style="color: var(--error);">Error loading news: ${e}</p>`;
+        clearTimeout(timeoutId);
+        if (!hasRenderedCache) {
+          container.innerHTML = `<p style="color: var(--error);">Error loading news: ${e.message || e}</p>`;
+        }
       }
     }
 
@@ -3371,11 +3539,17 @@ def get_dashboard_html() -> str:
       }
     }
 
-    window.onload = () => {
+    function bootstrapDashboard() {
       checkAdminState();
       initDiscordLinkUI();
       loadSquadStats();
-    };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrapDashboard);
+    } else {
+      bootstrapDashboard();
+    }
   </script>
 </body>
 </html>
