@@ -309,3 +309,75 @@ def build_leaderboard_embed(
     embed.description += "\n".join(lines)
     embed.set_footer(text="Server Leaderboard • /leaderboard")
     return embed
+
+
+def build_combo_embed(title: str, creator: str, combo_data: Dict[str, Any]) -> discord.Embed:
+    """Builds an embed showcasing a custom outfit & cosmetic combo loadout."""
+    outfit = combo_data.get("outfit") or {}
+    backpack = combo_data.get("backpack") or {}
+    pickaxe = combo_data.get("pickaxe") or {}
+    shoe = combo_data.get("shoe") or {}
+    glider = combo_data.get("glider") or {}
+    wrap = combo_data.get("wrap") or {}
+
+    embed = discord.Embed(
+        title=f"👗 Squad Outfit Combo: {title}",
+        description=f"Curated by **{creator}** in the Ghost Fitting Room.",
+        color=0x9333EA,
+        timestamp=datetime.utcnow()
+    )
+
+    lines = []
+    if outfit.get("name"):
+        lines.append(f"👔 **Outfit:** {outfit['name']} *({outfit.get('rarity', 'Skin')})*")
+    if backpack.get("name"):
+        lines.append(f"🎒 **Back Bling:** {backpack['name']}")
+    if pickaxe.get("name"):
+        lines.append(f"⛏️ **Pickaxe:** {pickaxe['name']}")
+    if shoe.get("name"):
+        lines.append(f"👟 **Shoes:** {shoe['name']}")
+    if glider.get("name"):
+        lines.append(f"🪂 **Glider:** {glider['name']}")
+    if wrap.get("name"):
+        lines.append(f"🎨 **Wrap:** {wrap['name']}")
+
+    embed.add_field(name="Equipped Loadout", value="\n".join(lines) if lines else "*No items selected*", inline=False)
+
+    img_url = outfit.get("icon") or outfit.get("images", {}).get("featured") or outfit.get("images", {}).get("icon") or ""
+    if img_url:
+        embed.set_thumbnail(url=img_url)
+
+    embed.set_footer(text="Ghost Fitting Room & Combo Studio • /combo")
+    return embed
+
+
+def build_locker_embed(player_name: str, locker_items: List[Dict[str, Any]]) -> discord.Embed:
+    """Builds an embed showing a squad member's locker inventory summary."""
+    embed = discord.Embed(
+        title=f"🎒 Squad Locker: {player_name}",
+        description=f"Total saved cosmetics: **{len(locker_items)}**",
+        color=0x3B82F6,
+        timestamp=datetime.utcnow()
+    )
+    counts = {}
+    for it in locker_items:
+        t = str(it.get("item_type", "cosmetic")).capitalize()
+        counts[t] = counts.get(t, 0) + 1
+
+    breakdown = " • ".join([f"**{t}s:** {cnt}" for t, cnt in counts.items()]) if counts else "No items recorded"
+    embed.add_field(name="Category Breakdown", value=breakdown, inline=False)
+
+    recent = locker_items[:6]
+    if recent:
+        lines = []
+        for r in recent:
+            lines.append(f"• **{r.get('item_name')}** ({str(r.get('item_type', 'item')).title()} - {r.get('rarity', 'Common')})")
+        embed.add_field(name="Recent Additions", value="\n".join(lines), inline=False)
+
+    if locker_items and locker_items[0].get("image_url"):
+        embed.set_thumbnail(url=locker_items[0]["image_url"])
+
+    embed.set_footer(text="Ghost Locker Studio • /locker")
+    return embed
+
+

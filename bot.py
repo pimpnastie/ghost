@@ -46,6 +46,14 @@ from database import (
     get_custom_pois,
     add_custom_poi,
     delete_custom_poi,
+    add_to_locker,
+    remove_from_locker,
+    get_player_locker,
+    get_all_squad_lockers,
+    bulk_import_locker,
+    save_combo,
+    get_saved_combos,
+    delete_saved_combo,
 )
 from dashboard_templates import get_dashboard_html
 from fortnite_client import FortniteClient, FortniteAPIError
@@ -57,6 +65,8 @@ from embed_builder import (
     build_drop_embed,
     build_news_embeds,
     build_leaderboard_embed,
+    build_combo_embed,
+    build_locker_embed,
 )
 
 # Logging configuration
@@ -887,6 +897,113 @@ class FortniteBot(commands.Bot):
                 except Exception as e:
                     return web.json_response({"status": "error", "message": str(e)}, status=500)
 
+            async def api_cosmetics_catalog(request):
+                try:
+                    q = request.query.get("q", "")
+                    c_type = request.query.get("type", "")
+                    limit = int(request.query.get("limit", 60))
+                    items = await self.fortnite.search_cosmetics_catalog(query=q, cosmetic_type=c_type, limit=limit)
+                    resp = web.json_response({"status": "success", "results": items, "count": len(items)})
+                    resp.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+                    return resp
+                except Exception as e:
+                    logger.error(f"Catalog search error: {e}")
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_lockers_get(request):
+                try:
+                    player = request.query.get("player", "").strip()
+                    if player:
+                        items = await get_player_locker(player)
+                        return web.json_response({"status": "success", "player": player, "locker": items, "count": len(items)})
+                    squad_lockers = await get_all_squad_lockers()
+                    return web.json_response({"status": "success", **squad_lockers})
+                except Exception as e:
+                    logger.error(f"Get lockers error: {e}")
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_lockers_add(request):
+                try:
+                    data = await request.json()
+                    player = str(data.get("player_id", "")).strip()
+                    item = data.get("item") or data
+                    if not player:
+                        return web.json_response({"status": "error", "message": "Missing player name"}, status=400)
+                    saved = await add_to_locker(player, item)
+                    return web.json_response({"status": "success", "item": saved})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_lockers_remove(request):
+                try:
+                    data = await request.json()
+                    player = str(data.get("player_id", "")).strip()
+                    item_id = str(data.get("item_id", "")).strip()
+                    if not player or not item_id:
+                        return web.json_response({"status": "error", "message": "Missing player or item_id"}, status=400)
+                    removed = await remove_from_locker(player, item_id)
+                    return web.json_response({"status": "success", "removed": removed})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_lockers_import(request):
+                try:
+                    data = await request.json()
+                    player = str(data.get("player_id", "")).strip()
+                    items = data.get("items", [])
+                    if not player or not isinstance(items, list):
+                        return web.json_response({"status": "error", "message": "Missing player or items list"}, status=400)
+                    imported = await bulk_import_locker(player, items)
+                    return web.json_response({"status": "success", "imported_count": imported})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_combos_get(request):
+                try:
+                    combos = await get_saved_combos(limit=50)
+                    return web.json_response({"status": "success", "combos": combos})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_combos_save(request):
+                try:
+                    data = await request.json()
+                    creator = str(data.get("creator_name", "Squad Member")).strip()
+                    title = str(data.get("combo_title", "Custom Combo")).strip()
+                    combo_data = data.get("combo_data") or {}
+                    saved = await save_combo(creator, title, combo_data)
+                    return web.json_response({"status": "success", "combo": saved})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_combos_delete(request):
+                try:
+                    data = await request.json()
+                    combo_id = str(data.get("combo_id", "")).strip()
+                    if not combo_id:
+                        return web.json_response({"status": "error", "message": "Missing combo_id"}, status=400)
+                    deleted = await delete_saved_combo(combo_id)
+                    return web.json_response({"status": "success", "deleted": deleted})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+            async def api_combos_broadcast(request):
+                try:
+                    data = await request.json()
+                    creator = str(data.get("creator_name", "Squad Member")).strip()
+                    title = str(data.get("combo_title", "Custom Combo")).strip()
+                    combo_data = data.get("combo_data") or {}
+                    posted_count = 0
+                    for guild in self.guilds:
+                        ch = await self.get_or_detect_shop_channel(guild)
+                        if ch and ch.permissions_for(guild.me).send_messages:
+                            embed = build_combo_embed(title, creator, combo_data)
+                            await ch.send(embed=embed)
+                            posted_count += 1
+                    return web.json_response({"status": "success", "posted_to": posted_count, "title": title})
+                except Exception as e:
+                    return web.json_response({"status": "error", "message": str(e)}, status=500)
+
             app.router.add_get("/", index)
             app.router.add_get("/health", health)
             app.router.add_get("/api/status", api_status)
@@ -912,6 +1029,15 @@ class FortniteBot(commands.Bot):
             app.router.add_get("/api/link-code/status", api_link_code_status)
             app.router.add_post("/api/admin/verify", api_admin_verify)
             app.router.add_post("/api/squad-session/reset", api_squad_session_reset)
+            app.router.add_get("/api/cosmetics/catalog", api_cosmetics_catalog)
+            app.router.add_get("/api/lockers", api_lockers_get)
+            app.router.add_post("/api/lockers/add", api_lockers_add)
+            app.router.add_post("/api/lockers/remove", api_lockers_remove)
+            app.router.add_post("/api/lockers/import", api_lockers_import)
+            app.router.add_get("/api/combos", api_combos_get)
+            app.router.add_post("/api/combos/save", api_combos_save)
+            app.router.add_post("/api/combos/delete", api_combos_delete)
+            app.router.add_post("/api/combos/broadcast", api_combos_broadcast)
 
             self._web_runner = web.AppRunner(app)
             await self._web_runner.setup()
@@ -1783,6 +1909,112 @@ async def ping_cmd(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name="locker", description="View a squad member's locker inventory, value, and cosmetics")
+@app_commands.describe(player="Epic Games username of the player (defaults to your linked account)")
+async def locker_cmd(interaction: discord.Interaction, player: Optional[str] = None):
+    await interaction.response.defer(thinking=True)
+    try:
+        target_name = player
+        if not target_name:
+            linked = await get_linked_user(interaction.user.id)
+            if linked:
+                target_name = linked
+            else:
+                embed = discord.Embed(
+                    title="🎒 Squad Locker Lookup",
+                    description=(
+                        "Please provide an Epic username or link your account first with `/link <name>`.\n\n"
+                        "Example: `/locker Ninja`"
+                    ),
+                    color=COLOR_WARNING
+                )
+                await interaction.followup.send(embed=embed)
+                return
+
+        items = await get_player_locker(target_name)
+        if not items:
+            embed = discord.Embed(
+                title=f"🎒 Squad Locker: {target_name}",
+                description=(
+                    f"No saved cosmetics found in **{target_name}**'s locker yet!\n\n"
+                    "Squad members can save items to their locker directly from the Ghost Web Dashboard (Fitting Room & Lockers tabs)."
+                ),
+                color=COLOR_WARNING
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        embed = build_locker_embed(target_name, items)
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.exception("Error in /locker")
+        embed = discord.Embed(title="❌ Locker Error", description=f"Could not retrieve locker: {e}", color=COLOR_ERROR)
+        await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="combo", description="Display saved squad outfit & cosmetic loadout combos")
+@app_commands.describe(name="Name or ID of a saved combo (leave blank to see recent combos)")
+async def combo_cmd(interaction: discord.Interaction, name: Optional[str] = None):
+    await interaction.response.defer(thinking=True)
+    try:
+        combos = await get_saved_combos(limit=25)
+        if not combos:
+            embed = discord.Embed(
+                title="👗 Saved Outfit Combos",
+                description=(
+                    "No outfit combos have been saved yet!\n\n"
+                    "Use the **Ghost Fitting Room** in the Web Dashboard to mix and match cosmetics and save your favorite combos."
+                ),
+                color=COLOR_WARNING
+            )
+            await interaction.followup.send(embed=embed)
+            return
+
+        if name:
+            match = None
+            for c in combos:
+                if name.lower() in str(c.get("combo_title", "")).lower() or name.lower() == str(c.get("combo_id", "")).lower():
+                    match = c
+                    break
+            if match:
+                embed = build_combo_embed(
+                    match.get("combo_title", "Custom Combo"),
+                    match.get("creator_name", "Squad Member"),
+                    match.get("combo_data", {})
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            else:
+                embed = discord.Embed(
+                    title="🔍 Combo Not Found",
+                    description=f"Could not find a combo matching `{name}`. Here are recent combos:\n",
+                    color=COLOR_WARNING
+                )
+        else:
+            embed = discord.Embed(
+                title="👗 Squad Saved Combos",
+                description="Here are recent outfit combos created by the squad in the Fitting Room:\n",
+                color=0x9333EA
+            )
+
+        lines = []
+        for c in combos[:8]:
+            cid = c.get("combo_id", "")
+            title = c.get("combo_title", "Untitled")
+            creator = c.get("creator_name", "Squad")
+            cdata = c.get("combo_data", {})
+            outfit = (cdata.get("outfit") or {}).get("name", "Skin")
+            lines.append(f"• **{title}** by {creator} — *{outfit}* (`/combo {cid}`)")
+
+        embed.description += "\n" + "\n".join(lines)
+        embed.set_footer(text="Create more in the Fitting Room • /combo <name>")
+        await interaction.followup.send(embed=embed)
+    except Exception as e:
+        logger.exception("Error in /combo")
+        embed = discord.Embed(title="❌ Combo Error", description=f"Could not retrieve combos: {e}", color=COLOR_ERROR)
+        await interaction.followup.send(embed=embed)
+
+
 @bot.tree.command(name="help", description="List all available Fortnite bot commands")
 async def help_cmd(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -1799,6 +2031,15 @@ async def help_cmd(interaction: discord.Interaction):
             "`/whois [member]` — See which Epic account a friend is linked to\n"
             "`/stats [player] [time_window]` — View Battle Royale stats, K/D, Wins, & Rank\n"
             "`/leaderboard [metric]` — Compare server members by Wins, K/D, or Kills"
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="👗 Fitting Room & Lockers",
+        value=(
+            "`/locker [player]` — View a player's saved cosmetic inventory & breakdown\n"
+            "`/combo [name]` — View saved outfit loadouts and mix-and-match combos"
         ),
         inline=False
     )
@@ -1828,6 +2069,7 @@ async def help_cmd(interaction: discord.Interaction):
 
     embed.set_footer(text="Tip: Link your account once with /link to use /stats with zero arguments!")
     await interaction.response.send_message(embed=embed)
+
 
 
 # ==============================================================================

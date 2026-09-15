@@ -771,6 +771,156 @@ def get_dashboard_html() -> str:
       letter-spacing: 0.5px;
     }
 
+    /* FITTING ROOM & LOADOUT STUDIO */
+    .fitting-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1e1b4b 0%, #0b0f19 80%);
+      border: 1px solid rgba(147, 51, 234, 0.35);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      min-height: 380px;
+      box-shadow: 0 10px 40px rgba(147, 51, 234, 0.15);
+    }
+    .fitting-mannequin-preview {
+      width: 220px;
+      height: 220px;
+      object-fit: contain;
+      filter: drop-shadow(0 12px 24px rgba(0,0,0,0.8));
+      transition: transform 0.3s ease;
+      z-index: 2;
+    }
+    .fitting-pedestal {
+      position: absolute;
+      bottom: 20px;
+      width: 220px;
+      height: 30px;
+      background: radial-gradient(ellipse at center, rgba(147, 51, 234, 0.6) 0%, rgba(147, 51, 234, 0) 70%);
+      border-radius: 50%;
+      filter: blur(4px);
+    }
+    .slots-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+      width: 100%;
+    }
+    .slot-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+      min-height: 140px;
+    }
+    .slot-card:hover {
+      border-color: var(--accent);
+      background: rgba(15, 23, 42, 0.95);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 168, 255, 0.2);
+    }
+    .slot-card.equipped {
+      border-style: solid;
+      border-color: rgba(147, 51, 234, 0.5);
+      background: linear-gradient(180deg, rgba(30, 27, 75, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%);
+    }
+    .slot-icon-img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    }
+    .slot-title {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+    .slot-item-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 110px;
+    }
+    .slot-clear-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .slot-clear-btn:hover {
+      background: var(--error);
+      color: #fff;
+    }
+
+    /* LOCKERS & INVENTORY */
+    .locker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+    }
+    .locker-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .locker-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 168, 255, 0.25);
+    }
+    .locker-card-img {
+      width: 70px;
+      height: 70px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    }
+    .shared-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
     @media (max-width: 768px) {
       body { flex-direction: column; }
       aside { width: 100%; }
@@ -793,6 +943,8 @@ def get_dashboard_html() -> str:
     <nav>
       <button class="nav-btn active" onclick="switchTab('squad')">👥 Squad Stats</button>
       <button class="nav-btn" onclick="switchTab('shop')">🛒 Live Item Shop</button>
+      <button class="nav-btn" onclick="switchTab('fitting')">👗 Fitting Room</button>
+      <button class="nav-btn" onclick="switchTab('lockers')">🎒 Squad Lockers</button>
       <button class="nav-btn" onclick="switchTab('map')">🗺️ Island Map</button>
       <button class="nav-btn" onclick="switchTab('news')">📰 News & Season</button>
       <button class="nav-btn admin-only" id="navChannels" onclick="switchTab('channels')">🎯 Channel Routing</button>
@@ -958,6 +1110,226 @@ def get_dashboard_html() -> str:
 
         <div id="shopContainer" class="shop-grid">
           <p style="color: var(--text-muted);">Fetching current shop items...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: FITTING ROOM / COMBO STUDIO -->
+    <section id="tab-fitting" class="tab-content">
+      <div class="card" style="border-color: rgba(147, 51, 234, 0.35); margin-bottom: 20px;">
+        <div class="card-title">
+          <span>👗 Ghost Fitting Room & Combo Studio</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="randomizeCombo()">🎲 Randomize</button>
+            <button class="btn btn-secondary" onclick="clearFittingRoom()">🗑️ Clear</button>
+            <button class="btn btn-secondary" onclick="openSaveComboModal()">💾 Save Combo</button>
+            <button class="btn btn-primary" onclick="broadcastCurrentCombo()">📢 Post to Discord</button>
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          Mix and match Fortnite outfits, back blings, pickaxes, shoes, gliders, and wraps just like Fortnite.gg! See your combo before you buy in today's Item Shop, inspect items in full 3D, and calculate squad savings.
+        </p>
+
+        <!-- Mannequin Stage & Slots -->
+        <div style="display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 20px; align-items: start;">
+          <!-- Mannequin Podium -->
+          <div class="fitting-stage">
+            <div style="position: absolute; top: 14px; left: 16px; font-size: 0.75rem; color: var(--accent); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+              🎭 Mannequin Stage
+            </div>
+            <button class="btn btn-secondary" id="btnFitting3dInspect" style="position: absolute; top: 12px; right: 14px; padding: 4px 10px; font-size: 0.72rem; display: none;" onclick="inspectEquippedIn3D()">
+              🌐 Inspect 3D
+            </button>
+
+            <!-- Character / Skin Visual Centerpiece -->
+            <img id="stageOutfitImg" src="https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png" class="fitting-mannequin-preview" alt="Mannequin" onerror="this.src='https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png'">
+            <div class="fitting-pedestal"></div>
+
+            <div id="stageOutfitName" style="font-size: 1.15rem; font-weight: 800; margin-top: 14px; text-align: center; z-index: 2;">
+              Select an Outfit
+            </div>
+            <div id="stageOutfitRarity" style="font-size: 0.75rem; color: var(--text-muted); z-index: 2;">
+              Click the Outfit slot below to browse
+            </div>
+
+            <!-- Shop Price & Value Tracker -->
+            <div id="stageShopBanner" style="display: none; margin-top: 12px; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; color: #4ade80; font-weight: 700; z-index: 2;">
+              🛒 In Today's Shop: <span id="stageShopPrice">0</span> V-Bucks
+            </div>
+          </div>
+
+          <!-- Equipped Slots Grid & Shop Cost Calculator -->
+          <div>
+            <div class="slots-container">
+              <!-- Slot: Outfit -->
+              <div class="slot-card" id="slotCard_outfit" onclick="openSlotDrawer('outfit')">
+                <div class="slot-title">👔 Outfit / Skin</div>
+                <img id="slotImg_outfit" class="slot-icon-img" src="https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png" alt="Outfit">
+                <div class="slot-item-name" id="slotName_outfit">None Selected</div>
+                <div class="slot-clear-btn" onclick="event.stopPropagation(); clearSlot('outfit');" title="Remove">✕</div>
+              </div>
+
+              <!-- Slot: Back Bling -->
+              <div class="slot-card" id="slotCard_backpack" onclick="openSlotDrawer('backpack')">
+                <div class="slot-title">🎒 Back Bling</div>
+                <img id="slotImg_backpack" class="slot-icon-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'/></svg>" alt="Backpack">
+                <div class="slot-item-name" id="slotName_backpack">Empty</div>
+                <div class="slot-clear-btn" onclick="event.stopPropagation(); clearSlot('backpack');" title="Remove">✕</div>
+              </div>
+
+              <!-- Slot: Pickaxe -->
+              <div class="slot-card" id="slotCard_pickaxe" onclick="openSlotDrawer('pickaxe')">
+                <div class="slot-title">⛏️ Pickaxe</div>
+                <img id="slotImg_pickaxe" class="slot-icon-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'/></svg>" alt="Pickaxe">
+                <div class="slot-item-name" id="slotName_pickaxe">Empty</div>
+                <div class="slot-clear-btn" onclick="event.stopPropagation(); clearSlot('pickaxe');" title="Remove">✕</div>
+              </div>
+
+              <!-- Slot: Shoes / Kicks -->
+              <div class="slot-card" id="slotCard_shoe" onclick="openSlotDrawer('shoe')">
+                <div class="slot-title">👟 Shoes / Kicks</div>
+                <img id="slotImg_shoe" class="slot-icon-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M3.5 18h17a1.5 1.5 0 0 0 1.5-1.5V14a5 5 0 0 0-5-5H12L8 4H4a2 2 0 0 0-2 2v10a2 2 0 0 0 1.5 2z'/></svg>" alt="Shoes">
+                <div class="slot-item-name" id="slotName_shoe">Empty</div>
+                <div class="slot-clear-btn" onclick="event.stopPropagation(); clearSlot('shoe');" title="Remove">✕</div>
+              </div>
+
+              <!-- Slot: Glider -->
+              <div class="slot-card" id="slotCard_glider" onclick="openSlotDrawer('glider')">
+                <div class="slot-title">🪂 Glider</div>
+                <img id="slotImg_glider" class="slot-icon-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M12 3v18m0-18C7 3 2 7 2 12c0 3 3 6 10 9m0-21c5 0 10 4 10 9 0 3-3 6-10 9'/></svg>" alt="Glider">
+                <div class="slot-item-name" id="slotName_glider">Empty</div>
+                <div class="slot-clear-btn" onclick="event.stopPropagation(); clearSlot('glider');" title="Remove">✕</div>
+              </div>
+
+              <!-- Slot: Wrap -->
+              <div class="slot-card" id="slotCard_wrap" onclick="openSlotDrawer('wrap')">
+                <div class="slot-title">🎨 Wrap</div>
+                <img id="slotImg_wrap" class="slot-icon-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01'/></svg>" alt="Wrap">
+                <div class="slot-item-name" id="slotName_wrap">Empty</div>
+                <div class="slot-clear-btn" onclick="event.stopPropagation(); clearSlot('wrap');" title="Remove">✕</div>
+              </div>
+            </div>
+
+            <!-- Today's Shop Cost & Savings Calculator -->
+            <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; margin-top: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: #a5b4fc;">🪙 Today's Shop Cost Calculator</span>
+                <span id="comboShopBadge" class="cache-pill">Checking Shop...</span>
+              </div>
+              <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+                <div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">TOTAL SHOP COST</div>
+                  <div style="font-size: 1.4rem; font-weight: 900; color: var(--gold); font-family: 'JetBrains Mono', monospace;" id="comboTotalCost">0 V-Bucks</div>
+                </div>
+                <div style="border-left: 1px solid var(--card-border); padding-left: 16px;">
+                  <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">AVAILABLE TODAY</div>
+                  <div style="font-size: 1rem; font-weight: 700; color: var(--text);" id="comboShopAvailable">0 of 0 items in shop</div>
+                </div>
+                <div style="border-left: 1px solid var(--card-border); padding-left: 16px;">
+                  <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700;">OWNED BY SQUAD</div>
+                  <div style="font-size: 1rem; font-weight: 700; color: #38bdf8;" id="comboSquadOwned">0 items owned</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Saved Squad Combos Shelf -->
+            <div style="margin-top: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text);">Saved Squad Combos</span>
+                <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.72rem;" onclick="loadSavedCombos()">🔄 Refresh</button>
+              </div>
+              <div id="savedCombosList" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px;">
+                <p style="font-size: 0.8rem; color: var(--text-muted);">No saved combos yet. Mix items above and click 'Save Combo'!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: SQUAD LOCKERS & INVENTORY -->
+    <section id="tab-lockers" class="tab-content">
+      <div class="card" style="border-color: rgba(59, 130, 246, 0.35); margin-bottom: 20px;">
+        <div class="card-title">
+          <span>🎒 Squad Lockers & Combined Inventory</span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="loadSquadLockers(true)">🔄 Refresh Lockers</button>
+            <button class="btn btn-primary" onclick="openAddLockerModal()">➕ Add Item</button>
+            <button class="btn btn-secondary" onclick="openBulkImportModal()">📥 Bulk Import</button>
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          View everyone's locker inventory in one unified studio. Inspect what cosmetics squad members own, find matching twin outfits for team games, and transfer items straight into the Fitting Room!
+        </p>
+
+        <!-- Player Switcher & Valuation Bar -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+          <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--card-border);">
+            <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Active Squad Locker</label>
+            <select id="lockerPlayerSelect" onchange="onLockerPlayerChange()" style="margin-top: 6px; width: 100%;">
+              <option value="all">👥 All Squad (Combined Inventory)</option>
+            </select>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--card-border);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Items Owned</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #38bdf8; margin-top: 4px;" id="lockerTotalCount">0</div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--card-border);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Estimated Locker Value</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: var(--gold); margin-top: 4px; font-family: 'JetBrains Mono', monospace;" id="lockerTotalValue">0 V-Bucks</div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid var(--card-border);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Squad Matching Twins</div>
+            <div style="font-size: 1.4rem; font-weight: 900; color: #a855f7; margin-top: 4px;" id="lockerSharedCount">0 Items</div>
+          </div>
+        </div>
+
+        <!-- Squad Shared / Matching Outfits Highlight Section -->
+        <div id="sharedItemsSection" style="margin-bottom: 20px; background: linear-gradient(180deg, rgba(88, 28, 135, 0.25) 0%, rgba(15, 23, 42, 0.4) 100%); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 12px; padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.1rem;">👯</span>
+              <h4 style="font-size: 0.95rem; font-weight: 800; color: #c084fc;">Matching Squad Outfits & Shared Items</h4>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Items owned by 2+ squad members</span>
+          </div>
+          <div id="sharedItemsList" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;">
+            <p style="font-size: 0.8rem; color: var(--text-muted);">No matching shared items yet. Add cosmetics to player lockers to find squad matches!</p>
+          </div>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+            <div style="flex: 2; min-width: 200px;">
+              <input type="text" id="lockerSearchInput" placeholder="🔍 Search locker by name..." oninput="filterLockerItems()">
+            </div>
+            <div style="min-width: 150px;">
+              <select id="lockerSortSelect" onchange="filterLockerItems()">
+                <option value="recent">🕒 Recently Added</option>
+                <option value="name-asc">🔤 Name: A to Z</option>
+                <option value="rarity">✨ By Rarity</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-pills" id="lockerTypePills" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+            <button class="filter-pill active" onclick="setLockerFilter('all', this)">All Items</button>
+            <button class="filter-pill" onclick="setLockerFilter('outfit', this)">👕 Outfits</button>
+            <button class="filter-pill" onclick="setLockerFilter('backpack', this)">🎒 Back Blings</button>
+            <button class="filter-pill" onclick="setLockerFilter('pickaxe', this)">⛏️ Pickaxes</button>
+            <button class="filter-pill" onclick="setLockerFilter('shoe', this)">👟 Shoes</button>
+            <button class="filter-pill" onclick="setLockerFilter('glider', this)">🪂 Gliders</button>
+            <button class="filter-pill" onclick="setLockerFilter('wrap', this)">🎨 Wraps</button>
+            <button class="filter-pill" onclick="setLockerFilter('emote', this)">💃 Emotes</button>
+          </div>
+        </div>
+
+        <!-- Locker Grid -->
+        <div id="lockerItemsContainer" class="locker-grid">
+          <p style="color: var(--text-muted);">Loading locker inventory...</p>
         </div>
       </div>
     </section>
@@ -1413,6 +1785,98 @@ def get_dashboard_html() -> str:
         <div id="inspectBundleList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
       </div>
     </div>
+  <!-- SLOT PICKER & COSMETICS CATALOG MODAL -->
+  <div id="slotPickerModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 680px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span id="pickerTitleIcon">👗</span> <span id="pickerModalTitle">Select Cosmetic</span>
+        </h3>
+        <button onclick="closeSlotPickerModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <!-- Filter Tabs & Search -->
+      <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+        <input type="text" id="pickerSearchInput" placeholder="Type to search cosmetics..." style="flex: 1;" oninput="onPickerSearchInput()">
+        <select id="pickerSourceSelect" onchange="onPickerSourceChange()" style="width: 170px;">
+          <option value="catalog">🌐 All 16K+ Items</option>
+          <option value="shop">🛒 In Today's Shop</option>
+          <option value="locker">🎒 Squad Locker</option>
+        </select>
+      </div>
+
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between;" id="pickerStatusRow">
+        <span id="pickerStatusText">Select an item to equip:</span>
+        <span id="pickerItemCount">0 items</span>
+      </div>
+
+      <!-- Item Grid with scroll -->
+      <div id="pickerItemsContainer" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; padding: 4px; min-height: 280px; max-height: 55vh;">
+        <p style="color: var(--text-muted); grid-column: 1/-1;">Searching catalog...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVE COMBO MODAL -->
+  <div id="saveComboModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 420px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span>💾</span> Save Outfit Combo
+        </h3>
+        <button onclick="closeSaveComboModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+        Save this loadout to the squad database so friends can view it in the studio or in Discord via <code>/combo</code>!
+      </p>
+
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label>Combo Title</label>
+        <input type="text" id="comboTitleInput" placeholder="e.g. Neon Assassin, Golden God, OG Peely">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label>Creator / Squad Member</label>
+        <input type="text" id="comboCreatorInput" placeholder="e.g. Mom, Dad, King Condor">
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="closeSaveComboModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex: 1; justify-content: center;" onclick="submitSaveCombo()">Save Combo ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULK IMPORT LOCKER MODAL -->
+  <div id="bulkImportModal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 500px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span>📥</span> Bulk Import Player Locker
+        </h3>
+        <button onclick="closeBulkImportModal()" style="background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">✕</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4;">
+        Enter the squad member's Epic name and paste cosmetic names (one per line). Dadmom will automatically match them against the 16,000+ cosmetic catalog and populate their persistent locker!
+      </p>
+
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label>Player Epic Username</label>
+        <input type="text" id="importPlayerInput" placeholder="e.g. p_lmpNastie, Going__Ghost">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label>Cosmetic Names (One per line)</label>
+        <textarea id="importCosmeticsText" rows="6" placeholder="Peely&#10;Travis Scott&#10;Reaper&#10;Black Knight&#10;Star Wand&#10;Leviathan Axe" style="width: 100%; font-family: monospace; font-size: 0.82rem;"></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="flex: 1; justify-content: center;" onclick="closeBulkImportModal()">Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitImport" style="flex: 1; justify-content: center;" onclick="submitBulkImport()">Import Items 🚀</button>
+      </div>
+    </div>
   </div>
 
   <div id="toast">Settings updated successfully!</div>
@@ -1430,6 +1894,8 @@ def get_dashboard_html() -> str:
 
       if (tabId === 'squad') loadSquadStats();
       if (tabId === 'shop') loadLiveShop();
+      if (tabId === 'fitting') loadFittingRoom();
+      if (tabId === 'lockers') loadSquadLockers();
       if (tabId === 'map') {
         ensureMapIframeLoaded();
         loadMap();
@@ -3821,6 +4287,924 @@ def get_dashboard_html() -> str:
         initDiscordLinkUI();
         loadSquadStats();
         showToast('Discord link disconnected.');
+      }
+    }
+
+    // ==========================================
+    // FITTING ROOM (COMBO STUDIO) & SQUAD LOCKERS
+    // ==========================================
+
+    let equippedCombo = {
+      outfit: null,
+      backpack: null,
+      pickaxe: null,
+      shoe: null,
+      glider: null,
+      wrap: null
+    };
+    let activePickerSlot = 'outfit';
+    let pickerTargetMode = 'equip';
+    let savedCombos = [];
+    let squadLockersData = { players: {}, shared_items: [] };
+    let activeLockerFilter = 'all';
+    let activeLockerSort = 'recent';
+    let pickerDebounceTimer = null;
+
+    function loadFittingRoom() {
+      updateFittingStageUI();
+      loadSavedCombos();
+      if (!cachedShopItems || cachedShopItems.length === 0) {
+        fetch('/api/live-shop').then(r => r.json()).then(items => {
+          cachedShopItems = Array.isArray(items) ? items : (items.items || []);
+          updateComboShopCalculator();
+        }).catch(console.error);
+      } else {
+        updateComboShopCalculator();
+      }
+    }
+
+    function updateFittingStageUI() {
+      const outfit = equippedCombo.outfit;
+      const stageImg = document.getElementById('stageOutfitImg');
+      const stageName = document.getElementById('stageOutfitName');
+      const stageRarity = document.getElementById('stageOutfitRarity');
+      const btn3d = document.getElementById('btnFitting3dInspect');
+
+      if (outfit) {
+        const icon = outfit.icon || outfit.image_url || (outfit.images && (outfit.images.featured || outfit.images.icon || outfit.images.smallIcon)) || '';
+        stageImg.src = icon || 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png';
+        stageName.innerText = outfit.name || outfit.item_name || 'Custom Outfit';
+        stageRarity.innerText = (outfit.rarity || 'Common') + ' • Outfit';
+        btn3d.style.display = 'inline-flex';
+      } else {
+        stageImg.src = 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png';
+        stageName.innerText = 'Select an Outfit';
+        stageRarity.innerText = 'Click the Outfit slot below to browse';
+        btn3d.style.display = 'none';
+      }
+
+      const slotTypes = ['outfit', 'backpack', 'pickaxe', 'shoe', 'glider', 'wrap'];
+      const defaultSlotIcons = {
+        outfit: 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png',
+        backpack: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'/></svg>",
+        pickaxe: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'/></svg>",
+        shoe: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M3.5 18h17a1.5 1.5 0 0 0 1.5-1.5V14a5 5 0 0 0-5-5H12L8 4H4a2 2 0 0 0-2 2v10a2 2 0 0 0 1.5 2z'/></svg>",
+        glider: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M12 3v18m0-18C7 3 2 7 2 12c0 3 3 6 10 9m0-21c5 0 10 4 10 9 0 3-3 6-10 9'/></svg>",
+        wrap: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' viewBox='0 0 24 24' stroke='%2364748b'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01'/></svg>"
+      };
+
+      slotTypes.forEach(st => {
+        const card = document.getElementById('slotCard_' + st);
+        const img = document.getElementById('slotImg_' + st);
+        const nameEl = document.getElementById('slotName_' + st);
+        const item = equippedCombo[st];
+
+        if (card && img && nameEl) {
+          if (item) {
+            card.classList.add('equipped');
+            const icon = item.icon || item.image_url || (item.images && (item.images.icon || item.images.smallIcon)) || '';
+            img.src = icon || defaultSlotIcons[st];
+            nameEl.innerText = item.name || item.item_name || 'Equipped';
+          } else {
+            card.classList.remove('equipped');
+            img.src = defaultSlotIcons[st];
+            nameEl.innerText = (st === 'outfit') ? 'None Selected' : 'Empty';
+          }
+        }
+      });
+
+      updateComboShopCalculator();
+    }
+
+    function clearSlot(slotType) {
+      equippedCombo[slotType] = null;
+      updateFittingStageUI();
+      showToast('Cleared ' + slotType + ' slot');
+    }
+
+    function clearFittingRoom() {
+      equippedCombo = {
+        outfit: null,
+        backpack: null,
+        pickaxe: null,
+        shoe: null,
+        glider: null,
+        wrap: null
+      };
+      updateFittingStageUI();
+      showToast('Fitting room cleared.');
+    }
+
+    function inspectEquippedIn3D() {
+      if (equippedCombo.outfit) {
+        openCosmeticModal(equippedCombo.outfit);
+      } else {
+        showToast('Please equip an Outfit to view in 3D');
+      }
+    }
+
+    function updateComboShopCalculator() {
+      let totalShopCost = 0;
+      let shopAvailableCount = 0;
+      let equippedCount = 0;
+      let squadOwnedCount = 0;
+
+      const allSquadItems = [];
+      if (squadLockersData && squadLockersData.players) {
+        Object.values(squadLockersData.players).forEach(pItems => {
+          if (Array.isArray(pItems)) allSquadItems.push(...pItems);
+        });
+      }
+
+      Object.entries(equippedCombo).forEach(([slot, item]) => {
+        if (!item) return;
+        equippedCount++;
+
+        const matchShop = (cachedShopItems || []).find(si => {
+          const sName = (si.name || '').toLowerCase();
+          const iName = (item.name || item.item_name || '').toLowerCase();
+          const sId = (si.id || '').toLowerCase();
+          const iId = (item.id || item.item_id || '').toLowerCase();
+          return (sId && iId && sId === iId) || (sName && iName && sName === iName);
+        });
+
+        if (matchShop) {
+          shopAvailableCount++;
+          const price = parseInt(matchShop.price || matchShop.finalPrice || 0, 10);
+          totalShopCost += price;
+        }
+
+        const matchLocker = allSquadItems.find(li => {
+          const lName = (li.item_name || '').toLowerCase();
+          const iName = (item.name || item.item_name || '').toLowerCase();
+          const lId = (li.item_id || '').toLowerCase();
+          const iId = (item.id || item.item_id || '').toLowerCase();
+          return (lId && iId && lId === iId) || (lName && iName && lName === iName);
+        });
+        if (matchLocker) {
+          squadOwnedCount++;
+        }
+      });
+
+      const costEl = document.getElementById('comboTotalCost');
+      const availEl = document.getElementById('comboShopAvailable');
+      const ownedEl = document.getElementById('comboSquadOwned');
+      const badgeEl = document.getElementById('comboShopBadge');
+      const bannerEl = document.getElementById('stageShopBanner');
+      const stagePriceEl = document.getElementById('stageShopPrice');
+
+      if (costEl) costEl.innerText = totalShopCost.toLocaleString() + ' V-Bucks';
+      if (availEl) availEl.innerText = shopAvailableCount + ' of ' + equippedCount + ' items in shop';
+      if (ownedEl) ownedEl.innerText = squadOwnedCount + ' items owned';
+
+      if (badgeEl) {
+        if (shopAvailableCount > 0) {
+          badgeEl.innerText = '✓ ' + shopAvailableCount + ' Item(s) in Today\'s Shop';
+          badgeEl.style.color = '#4ade80';
+        } else {
+          badgeEl.innerText = 'Vaulted / Not in Today\'s Shop';
+          badgeEl.style.color = 'var(--text-muted)';
+        }
+      }
+
+      if (bannerEl && stagePriceEl) {
+        if (equippedCombo.outfit) {
+          const outfitShop = (cachedShopItems || []).find(si => {
+            const sName = (si.name || '').toLowerCase();
+            const iName = (equippedCombo.outfit.name || equippedCombo.outfit.item_name || '').toLowerCase();
+            return sName === iName;
+          });
+          if (outfitShop) {
+            bannerEl.style.display = 'block';
+            stagePriceEl.innerText = (outfitShop.price || 1500).toLocaleString();
+          } else {
+            bannerEl.style.display = 'none';
+          }
+        } else {
+          bannerEl.style.display = 'none';
+        }
+      }
+    }
+
+    function openSlotDrawer(slotType) {
+      activePickerSlot = slotType;
+      pickerTargetMode = 'equip';
+      const slotTitles = {
+        outfit: 'Select Outfit / Skin',
+        backpack: 'Select Back Bling',
+        pickaxe: 'Select Harvesting Tool / Pickaxe',
+        shoe: 'Select Shoes / Kicks',
+        glider: 'Select Glider',
+        wrap: 'Select Weapon / Vehicle Wrap'
+      };
+      document.getElementById('pickerModalTitle').innerText = slotTitles[slotType] || 'Select Cosmetic';
+      document.getElementById('pickerSearchInput').value = '';
+      document.getElementById('pickerSourceSelect').value = 'catalog';
+      document.getElementById('slotPickerModal').classList.add('open');
+
+      fetchPickerCosmetics('', slotType, 'catalog');
+    }
+
+    function closeSlotPickerModal() {
+      document.getElementById('slotPickerModal').classList.remove('open');
+    }
+
+    function onPickerSearchInput() {
+      clearTimeout(pickerDebounceTimer);
+      pickerDebounceTimer = setTimeout(() => {
+        const q = (document.getElementById('pickerSearchInput').value || '').trim();
+        const source = document.getElementById('pickerSourceSelect').value;
+        fetchPickerCosmetics(q, activePickerSlot, source);
+      }, 250);
+    }
+
+    function onPickerSourceChange() {
+      const q = (document.getElementById('pickerSearchInput').value || '').trim();
+      const source = document.getElementById('pickerSourceSelect').value;
+      fetchPickerCosmetics(q, activePickerSlot, source);
+    }
+
+    async function fetchPickerCosmetics(query, cosmeticType, source) {
+      const container = document.getElementById('pickerItemsContainer');
+      const countEl = document.getElementById('pickerItemCount');
+      container.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">Searching cosmetics...</p>';
+
+      try {
+        if (source === 'shop') {
+          let items = (cachedShopItems || []).filter(item => {
+            const rawType = (item.type || '').toLowerCase();
+            let matchesType = true;
+            if (cosmeticType === 'outfit') matchesType = rawType.includes('outfit') || rawType.includes('skin');
+            else if (cosmeticType === 'backpack') matchesType = rawType.includes('back') || rawType.includes('backpack');
+            else if (cosmeticType === 'pickaxe') matchesType = rawType.includes('pickaxe');
+            else if (cosmeticType === 'shoe') matchesType = rawType.includes('shoe') || rawType.includes('kick');
+            else if (cosmeticType === 'glider') matchesType = rawType.includes('glider');
+            else if (cosmeticType === 'wrap') matchesType = rawType.includes('wrap');
+            if (query) {
+              matchesType = matchesType && (item.name || '').toLowerCase().includes(query.toLowerCase());
+            }
+            return matchesType;
+          });
+          renderPickerItems(items);
+        } else if (source === 'locker') {
+          let items = [];
+          if (squadLockersData && squadLockersData.players) {
+            Object.values(squadLockersData.players).forEach(pList => {
+              if (Array.isArray(pList)) items.push(...pList);
+            });
+          }
+          if (cosmeticType) {
+            items = items.filter(it => {
+              const itType = (it.item_type || '').toLowerCase();
+              let m = (itType === cosmeticType.toLowerCase()) || (cosmeticType === 'backpack' && itType === 'backpack');
+              if (query) m = m && (it.item_name || '').toLowerCase().includes(query.toLowerCase());
+              return m;
+            });
+          }
+          renderPickerItems(items);
+        } else {
+          const res = await fetch('/api/cosmetics/catalog?q=' + encodeURIComponent(query) + '&type=' + encodeURIComponent(cosmeticType) + '&limit=60');
+          const data = await res.json();
+          const results = data.results || [];
+          renderPickerItems(results);
+        }
+      } catch (err) {
+        container.innerHTML = '<p style="color: var(--error); grid-column: 1/-1;">Failed to load cosmetics: ' + err + '</p>';
+      }
+    }
+
+    function renderPickerItems(items) {
+      const container = document.getElementById('pickerItemsContainer');
+      const countEl = document.getElementById('pickerItemCount');
+      if (countEl) countEl.innerText = items.length + ' found';
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">No cosmetics found matching your criteria.</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.style.background = 'rgba(0, 0, 0, 0.4)';
+        card.style.border = '1px solid var(--card-border)';
+        card.style.borderRadius = '10px';
+        card.style.padding = '8px';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.alignItems = 'center';
+        card.style.cursor = 'pointer';
+        card.style.transition = 'all 0.2s ease';
+        card.style.position = 'relative';
+
+        const name = item.name || item.item_name || 'Cosmetic';
+        const icon = item.icon || item.image_url || (item.images && (item.images.icon || item.images.smallIcon || item.images.featured)) || '';
+        const rarity = item.rarity || 'Common';
+
+        card.onmouseenter = () => { card.style.borderColor = 'var(--accent)'; card.style.transform = 'translateY(-2px)'; };
+        card.onmouseleave = () => { card.style.borderColor = 'var(--card-border)'; card.style.transform = 'translateY(0)'; };
+
+        card.innerHTML = `
+          <img src="${icon}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));" onerror="this.src='https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png'">
+          <div style="font-size: 0.72rem; font-weight: 700; color: var(--text); margin-top: 6px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">${name}</div>
+          <div style="font-size: 0.65rem; color: var(--text-muted);">${rarity}</div>
+        `;
+
+        card.onclick = () => {
+          if (pickerTargetMode === 'equip') {
+            equippedCombo[activePickerSlot] = item;
+            updateFittingStageUI();
+            closeSlotPickerModal();
+            showToast('Equipped ' + name + '!');
+          } else if (pickerTargetMode === 'add_to_locker') {
+            saveItemToPlayerLockerDirect(item);
+          }
+        };
+
+        container.appendChild(card);
+      });
+    }
+
+    async function randomizeCombo() {
+      showToast('🎲 Randomizing combo...');
+      try {
+        const slots = ['outfit', 'backpack', 'pickaxe', 'shoe', 'glider', 'wrap'];
+        for (const s of slots) {
+          const res = await fetch('/api/cosmetics/catalog?type=' + s + '&limit=40');
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            const rand = data.results[Math.floor(Math.random() * data.results.length)];
+            equippedCombo[s] = rand;
+          }
+        }
+        updateFittingStageUI();
+        showToast('🎲 Random combo rolled!');
+      } catch (err) {
+        showToast('Error rolling combo: ' + err);
+      }
+    }
+
+    function openSaveComboModal() {
+      if (!equippedCombo.outfit && !equippedCombo.backpack && !equippedCombo.pickaxe) {
+        showToast('Equip at least one cosmetic before saving a combo!');
+        return;
+      }
+      document.getElementById('comboTitleInput').value = '';
+      const linked = localStorage.getItem('ghost_linked_player');
+      if (linked) {
+        try {
+          const lObj = JSON.parse(linked);
+          document.getElementById('comboCreatorInput').value = lObj.epic_name || '';
+        } catch (e) {}
+      }
+      document.getElementById('saveComboModal').classList.add('open');
+    }
+
+    function closeSaveComboModal() {
+      document.getElementById('saveComboModal').classList.remove('open');
+    }
+
+    async function submitSaveCombo() {
+      const title = (document.getElementById('comboTitleInput').value || '').trim() || 'Custom Combo';
+      const creator = (document.getElementById('comboCreatorInput').value || '').trim() || 'Squad Member';
+
+      try {
+        const res = await fetch('/api/combos/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creator_name: creator,
+            combo_title: title,
+            combo_data: equippedCombo
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          closeSaveComboModal();
+          loadSavedCombos();
+          showToast('Saved combo "' + title + '"! ✓');
+        } else {
+          showToast('Failed to save combo: ' + (data.message || ''));
+        }
+      } catch (err) {
+        showToast('Error saving combo: ' + err);
+      }
+    }
+
+    async function loadSavedCombos() {
+      const container = document.getElementById('savedCombosList');
+      if (!container) return;
+      try {
+        const res = await fetch('/api/combos');
+        const data = await res.json();
+        savedCombos = data.combos || [];
+
+        if (savedCombos.length === 0) {
+          container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No saved combos yet. Mix items above and click \'Save Combo\'!</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        savedCombos.forEach(c => {
+          const cData = c.combo_data || {};
+          const outfit = cData.outfit || {};
+          const icon = outfit.icon || outfit.image_url || (outfit.images && (outfit.images.icon || outfit.images.smallIcon)) || 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png';
+
+          const card = document.createElement('div');
+          card.style.background = 'rgba(0,0,0,0.4)';
+          card.style.border = '1px solid var(--card-border)';
+          card.style.borderRadius = '10px';
+          card.style.padding = '8px 12px';
+          card.style.minWidth = '160px';
+          card.style.display = 'flex';
+          card.style.alignItems = 'center';
+          card.style.gap = '10px';
+          card.style.cursor = 'pointer';
+          card.style.transition = 'all 0.2s ease';
+
+          card.onmouseenter = () => { card.style.borderColor = 'var(--accent-purple)'; card.style.transform = 'translateY(-2px)'; };
+          card.onmouseleave = () => { card.style.borderColor = 'var(--card-border)'; card.style.transform = 'translateY(0)'; };
+
+          card.innerHTML = `
+            <img src="${icon}" style="width: 44px; height: 44px; object-fit: contain; border-radius: 8px;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 0.78rem; font-weight: 800; color: #c084fc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.combo_title || 'Combo'}</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">by ${c.creator_name || 'Squad'}</div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.68rem;" title="Equip to Mannequin">👗</button>
+          `;
+
+          card.onclick = () => {
+            equipSavedCombo(c);
+          };
+
+          container.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Error loading saved combos:', err);
+      }
+    }
+
+    function equipSavedCombo(combo) {
+      if (!combo || !combo.combo_data) return;
+      equippedCombo = Object.assign({
+        outfit: null,
+        backpack: null,
+        pickaxe: null,
+        shoe: null,
+        glider: null,
+        wrap: null
+      }, combo.combo_data);
+      updateFittingStageUI();
+      showToast('Equipped combo "' + (combo.combo_title || 'Saved Combo') + '"!');
+    }
+
+    async function broadcastCurrentCombo() {
+      if (!equippedCombo.outfit && !equippedCombo.backpack && !equippedCombo.pickaxe) {
+        showToast('Equip a combo before broadcasting to Discord!');
+        return;
+      }
+      showToast('📢 Broadcasting combo to Discord...');
+      try {
+        const linked = localStorage.getItem('ghost_linked_player');
+        let creator = 'Squad Member';
+        if (linked) {
+          try { creator = JSON.parse(linked).epic_name || creator; } catch (e) {}
+        }
+        const title = (equippedCombo.outfit ? equippedCombo.outfit.name : 'Squad') + ' Combo';
+
+        const res = await fetch('/api/combos/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            creator_name: creator,
+            combo_title: title,
+            combo_data: equippedCombo
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast('📢 Posted combo to Discord! (' + data.posted_to + ' channel(s))');
+        } else {
+          showToast('Failed to broadcast: ' + (data.message || ''));
+        }
+      } catch (err) {
+        showToast('Broadcast error: ' + err);
+      }
+    }
+
+    // ==========================================
+    // SQUAD LOCKERS & INVENTORY SYSTEM
+    // ==========================================
+
+    async function loadSquadLockers(force = false) {
+      try {
+        const res = await fetch('/api/lockers');
+        const data = await res.json();
+        squadLockersData = data || { players: {}, shared_items: [] };
+
+        populateLockerPlayerSelect();
+        renderLockerStats();
+        renderSharedItemsShelf();
+        filterLockerItems();
+      } catch (err) {
+        console.error('Error loading squad lockers:', err);
+      }
+    }
+
+    function populateLockerPlayerSelect() {
+      const sel = document.getElementById('lockerPlayerSelect');
+      if (!sel) return;
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="all">👥 All Squad (Combined Inventory)</option>';
+
+      const players = Object.keys(squadLockersData.players || {});
+      players.sort().forEach(p => {
+        const count = (squadLockersData.players[p] || []).length;
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.innerText = '👤 ' + p + ' (' + count + ' cosmetics)';
+        sel.appendChild(opt);
+      });
+
+      if (currentVal && (currentVal === 'all' || players.includes(currentVal))) {
+        sel.value = currentVal;
+      }
+    }
+
+    function onLockerPlayerChange() {
+      renderLockerStats();
+      filterLockerItems();
+    }
+
+    function renderLockerStats() {
+      const sel = document.getElementById('lockerPlayerSelect');
+      const player = sel ? sel.value : 'all';
+
+      let items = [];
+      if (player === 'all') {
+        Object.values(squadLockersData.players || {}).forEach(pList => {
+          if (Array.isArray(pList)) items.push(...pList);
+        });
+      } else {
+        items = (squadLockersData.players || {})[player] || [];
+      }
+
+      const rarityValues = {
+        legendary: 2000,
+        epic: 1500,
+        rare: 1200,
+        uncommon: 800,
+        common: 500,
+        icon: 1500,
+        marvel: 1500,
+        dc: 1500,
+        gaminglegends: 1500,
+        starwars: 1500
+      };
+
+      let totalVal = 0;
+      items.forEach(it => {
+        const r = (it.rarity || 'common').toLowerCase().replace(/[^a-z]/g, '');
+        totalVal += (rarityValues[r] || 800);
+      });
+
+      const countEl = document.getElementById('lockerTotalCount');
+      const valEl = document.getElementById('lockerTotalValue');
+      const sharedEl = document.getElementById('lockerSharedCount');
+
+      if (countEl) countEl.innerText = items.length.toLocaleString();
+      if (valEl) valEl.innerText = totalVal.toLocaleString() + ' V-Bucks';
+      if (sharedEl) sharedEl.innerText = ((squadLockersData.shared_items || []).length) + ' Matching Sets';
+    }
+
+    function renderSharedItemsShelf() {
+      const container = document.getElementById('sharedItemsList');
+      if (!container) return;
+      const shared = squadLockersData.shared_items || [];
+
+      if (shared.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: var(--text-muted);">No matching shared items yet. Add cosmetics to player lockers to find squad matches!</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      shared.forEach(it => {
+        const card = document.createElement('div');
+        card.style.background = 'rgba(0,0,0,0.4)';
+        card.style.border = '1px solid rgba(168, 85, 247, 0.4)';
+        card.style.borderRadius = '10px';
+        card.style.padding = '8px 12px';
+        card.style.minWidth = '170px';
+        card.style.display = 'flex';
+        card.style.alignItems = 'center';
+        card.style.gap = '10px';
+        card.style.position = 'relative';
+
+        const ownersList = (it.owners || []).join(', ');
+        card.innerHTML = `
+          <img src="${it.image_url || 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png'}" style="width: 44px; height: 44px; object-fit: contain; border-radius: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 0.78rem; font-weight: 800; color: #e9d5ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${it.item_name}</div>
+            <div style="font-size: 0.68rem; color: #a855f7; font-weight: 700;">👯 Owned by ${it.owner_count} players</div>
+            <div style="font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${ownersList}">${ownersList}</div>
+          </div>
+          <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.68rem;" title="Equip to Fitting Room">👗</button>
+        `;
+
+        card.onclick = () => {
+          equipItemToAppropriateSlot(it);
+        };
+
+        container.appendChild(card);
+      });
+    }
+
+    function setLockerFilter(type, btn) {
+      activeLockerFilter = type;
+      document.querySelectorAll('#lockerTypePills .filter-pill').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      filterLockerItems();
+    }
+
+    function filterLockerItems() {
+      const sel = document.getElementById('lockerPlayerSelect');
+      const player = sel ? sel.value : 'all';
+      const q = (document.getElementById('lockerSearchInput').value || '').trim().toLowerCase();
+      const sort = document.getElementById('lockerSortSelect').value;
+
+      let items = [];
+      if (player === 'all') {
+        Object.entries(squadLockersData.players || {}).forEach(([pName, pList]) => {
+          if (Array.isArray(pList)) {
+            pList.forEach(it => {
+              items.push(Object.assign({}, it, { owner_name: pName }));
+            });
+          }
+        });
+      } else {
+        items = ((squadLockersData.players || {})[player] || []).map(it => Object.assign({}, it, { owner_name: player }));
+      }
+
+      if (activeLockerFilter !== 'all') {
+        items = items.filter(it => {
+          const t = (it.item_type || '').toLowerCase();
+          return t === activeLockerFilter.toLowerCase() || (activeLockerFilter === 'backpack' && t === 'backpack');
+        });
+      }
+
+      if (q) {
+        items = items.filter(it => {
+          const n = (it.item_name || '').toLowerCase();
+          const o = (it.owner_name || '').toLowerCase();
+          return n.includes(q) || o.includes(q);
+        });
+      }
+
+      if (sort === 'name-asc') {
+        items.sort((a, b) => (a.item_name || '').localeCompare(b.item_name || ''));
+      } else if (sort === 'rarity') {
+        const rOrder = { legendary: 1, epic: 2, rare: 3, uncommon: 4, common: 5 };
+        items.sort((a, b) => (rOrder[(a.rarity || '').toLowerCase()] || 99) - (rOrder[(b.rarity || '').toLowerCase()] || 99));
+      }
+
+      renderLockerCards(items);
+    }
+
+    function renderLockerCards(items) {
+      const container = document.getElementById('lockerItemsContainer');
+      if (!container) return;
+
+      if (!items || items.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); grid-column: 1/-1;">No locker items found matching your filters. Click \'➕ Add Item\' or \'📥 Bulk Import\' to build this squad member\'s locker!</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      items.forEach(it => {
+        const card = document.createElement('div');
+        card.className = 'locker-card';
+
+        const name = it.item_name || 'Cosmetic';
+        const icon = it.image_url || 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png';
+        const rarity = it.rarity || 'Common';
+        const typeStr = (it.item_type || 'Cosmetic').toUpperCase();
+
+        const safeOwner = (it.owner_name || '').replace(/'/g, "\\'");
+        const safeItemId = (it.item_id || '').replace(/'/g, "\\'");
+
+        card.innerHTML = `
+          <img class="locker-card-img" src="${icon}" onerror="this.src='https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png'">
+          <div style="font-size: 0.78rem; font-weight: 800; color: var(--text); margin-top: 8px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">${name}</div>
+          <div style="font-size: 0.68rem; color: var(--accent); font-weight: 700;">${typeStr}</div>
+          <div style="font-size: 0.65rem; color: var(--text-muted);">${it.owner_name ? '👤 ' + it.owner_name : rarity}</div>
+          <div style="display: flex; gap: 6px; margin-top: 8px; width: 100%;">
+            <button class="btn btn-secondary btn-equip-locker" style="flex: 1; padding: 4px; font-size: 0.68rem; justify-content: center;" title="Equip to Fitting Room">👗 Equip</button>
+            <button class="btn btn-secondary btn-remove-locker" style="padding: 4px 8px; font-size: 0.68rem; color: var(--error);" title="Remove from Locker">✕</button>
+          </div>
+        `;
+
+        card.querySelector('.btn-equip-locker').onclick = (e) => {
+          e.stopPropagation();
+          equipItemToAppropriateSlot(it);
+        };
+        card.querySelector('.btn-remove-locker').onclick = (e) => {
+          e.stopPropagation();
+          removeLockerItem(it.owner_name || '', it.item_id);
+        };
+
+        container.appendChild(card);
+      });
+    }
+
+    function equipItemToAppropriateSlot(item) {
+      const rawType = (item.item_type || '').toLowerCase();
+      let slot = 'outfit';
+      if (rawType.includes('back') || rawType.includes('backpack')) slot = 'backpack';
+      else if (rawType.includes('pickaxe')) slot = 'pickaxe';
+      else if (rawType.includes('shoe') || rawType.includes('kick')) slot = 'shoe';
+      else if (rawType.includes('glider')) slot = 'glider';
+      else if (rawType.includes('wrap')) slot = 'wrap';
+
+      equippedCombo[slot] = {
+        id: item.item_id,
+        name: item.item_name,
+        type: item.item_type,
+        rarity: item.rarity,
+        icon: item.image_url
+      };
+
+      updateFittingStageUI();
+      switchTab('fitting');
+      showToast('Equipped ' + item.item_name + ' to ' + slot + ' in Fitting Room!');
+    }
+
+    async function removeLockerItem(player, itemId) {
+      if (!player) {
+        const sel = document.getElementById('lockerPlayerSelect');
+        player = sel ? sel.value : '';
+      }
+      if (!player || player === 'all') {
+        showToast('Please select a specific player to remove items from their locker.');
+        return;
+      }
+      if (!confirm('Remove this cosmetic from ' + player + '\'s locker?')) return;
+
+      try {
+        const res = await fetch('/api/lockers/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_id: player, item_id: itemId })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast('Removed item from locker.');
+          loadSquadLockers();
+        } else {
+          showToast('Failed to remove: ' + (data.message || ''));
+        }
+      } catch (err) {
+        showToast('Error removing item: ' + err);
+      }
+    }
+
+    function openAddLockerModal() {
+      const sel = document.getElementById('lockerPlayerSelect');
+      let player = sel ? sel.value : '';
+      if (!player || player === 'all') {
+        const linked = localStorage.getItem('ghost_linked_player');
+        if (linked) {
+          try { player = JSON.parse(linked).epic_name; } catch (e) {}
+        }
+      }
+      if (!player || player === 'all') {
+        player = prompt('Enter the Epic Games username of the squad member:') || '';
+      }
+      if (!player) return;
+
+      activePickerSlot = 'outfit';
+      pickerTargetMode = 'add_to_locker';
+      window._currentLockerAddPlayer = player;
+
+      document.getElementById('pickerModalTitle').innerText = 'Add Item to ' + player + '\'s Locker';
+      document.getElementById('pickerSearchInput').value = '';
+      document.getElementById('pickerSourceSelect').value = 'catalog';
+      document.getElementById('slotPickerModal').classList.add('open');
+
+      fetchPickerCosmetics('', '', 'catalog');
+    }
+
+    async function saveItemToPlayerLockerDirect(item) {
+      const player = window._currentLockerAddPlayer;
+      if (!player) return;
+
+      const itemPayload = {
+        item_id: item.id || item.item_id,
+        item_name: item.name || item.item_name,
+        item_type: item.type || 'cosmetic',
+        rarity: item.rarity || 'Common',
+        image_url: item.icon || item.image_url || (item.images && (item.images.icon || item.images.smallIcon || item.images.featured)) || ''
+      };
+
+      try {
+        const res = await fetch('/api/lockers/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_id: player, item: itemPayload })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast('Added ' + itemPayload.item_name + ' to ' + player + '\'s locker!');
+          closeSlotPickerModal();
+          loadSquadLockers();
+        } else {
+          showToast('Error: ' + (data.message || ''));
+        }
+      } catch (err) {
+        showToast('Error adding to locker: ' + err);
+      }
+    }
+
+    function openBulkImportModal() {
+      const sel = document.getElementById('lockerPlayerSelect');
+      let player = sel ? sel.value : '';
+      if (!player || player === 'all') {
+        const linked = localStorage.getItem('ghost_linked_player');
+        if (linked) {
+          try { player = JSON.parse(linked).epic_name; } catch (e) {}
+        }
+      }
+      if (player && player !== 'all') {
+        document.getElementById('importPlayerInput').value = player;
+      }
+      document.getElementById('importCosmeticsText').value = '';
+      document.getElementById('bulkImportModal').classList.add('open');
+    }
+
+    function closeBulkImportModal() {
+      document.getElementById('bulkImportModal').classList.remove('open');
+    }
+
+    async function submitBulkImport() {
+      const player = (document.getElementById('importPlayerInput').value || '').trim();
+      const text = document.getElementById('importCosmeticsText').value || '';
+      if (!player) {
+        showToast('Please enter the player\'s Epic username');
+        return;
+      }
+      const lines = text.split(String.fromCharCode(10)).map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) {
+        showToast('Please enter at least one cosmetic name');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitImport');
+      btn.innerText = 'Matching & Importing...';
+      btn.disabled = true;
+
+      try {
+        const itemsToImport = [];
+        for (const line of lines) {
+          try {
+            const res = await fetch('/api/cosmetics/catalog?q=' + encodeURIComponent(line) + '&limit=1');
+            const data = await res.json();
+            if (data.results && data.results.length > 0) {
+              const match = data.results[0];
+              itemsToImport.push({
+                item_id: match.id,
+                item_name: match.name,
+                item_type: match.type || 'cosmetic',
+                rarity: match.rarity || 'Common',
+                image_url: match.icon || (match.images && (match.images.icon || match.images.featured)) || ''
+              });
+            } else {
+              itemsToImport.push({
+                item_id: 'custom_' + line.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                item_name: line,
+                item_type: 'cosmetic',
+                rarity: 'Common',
+                image_url: 'https://fortnite-api.com/images/cosmetics/br/cid_001_athena_commando_f_default/icon.png'
+              });
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        const importRes = await fetch('/api/lockers/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_id: player, items: itemsToImport })
+        });
+        const importData = await importRes.json();
+        closeBulkImportModal();
+        showToast('Imported ' + (importData.imported_count || itemsToImport.length) + ' items for ' + player + '! 🚀');
+        loadSquadLockers();
+      } catch (err) {
+        showToast('Import error: ' + err);
+      } finally {
+        btn.innerText = 'Import Items 🚀';
+        btn.disabled = false;
       }
     }
 

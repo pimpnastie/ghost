@@ -1,4 +1,6 @@
 import aiosqlite
+import json
+import uuid
 from typing import Optional, Dict, List, Tuple, Any
 from datetime import datetime
 import logging
@@ -32,6 +34,8 @@ async def init_db():
             await _mongo_db.user_links.create_index("epic_username_lower", unique=True)
             await _mongo_db.guild_settings.create_index("guild_id", unique=True)
             await _mongo_db.bot_state.create_index("key", unique=True)
+            await _mongo_db.player_lockers.create_index([("epic_username", 1), ("item_id", 1)], unique=True)
+            await _mongo_db.saved_combos.create_index("combo_id", unique=True)
             logger.info("MongoDB collections & indexes initialized.")
             return
         except Exception as e:
@@ -57,6 +61,32 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS bot_state (
                 key TEXT PRIMARY KEY,
                 value TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS player_lockers (
+                epic_username TEXT NOT NULL COLLATE NOCASE,
+                item_id TEXT NOT NULL,
+                item_name TEXT NOT NULL,
+                item_type TEXT NOT NULL,
+                rarity TEXT,
+                image_url TEXT,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (epic_username, item_id)
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS saved_combos (
+                combo_id TEXT PRIMARY KEY,
+                creator_name TEXT NOT NULL,
+                combo_title TEXT NOT NULL,
+                outfit_data TEXT,
+                backpack_data TEXT,
+                pickaxe_data TEXT,
+                shoe_data TEXT,
+                glider_data TEXT,
+                wrap_data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         await db.commit()
@@ -513,6 +543,282 @@ async def delete_custom_poi(name: str) -> bool:
 
     async with aiosqlite.connect(DATABASE_PATH) as db:
         cur = await db.execute("DELETE FROM custom_pois WHERE name = ?", (clean_name,))
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def add_to_locker(epic_username: str, item: Dict[str, Any]) -> Dict[str, Any]:
+    """Adds a cosmetic item to a player's locker."""
+    clean_user = epic_username.strip()
+    item_id = str(item.get("id") or item.get("name", "")).strip()
+    item_name = str(item.get("name", "Unknown Item")).strip()
+    item_type = str(item.get("type") or item.get("item_type", "cosmetic")).strip().lower()
+    rarity = str(item.get("rarity", "Common")).strip()
+    image_url = str(item.get("image_url") or item.get("icon") or item.get("images", {}).get("icon") or "")
+    now = datetime.utcnow()
+
+    if _mongo_db is not None:
+        doc = {
+            "epic_username": clean_user,
+            "item_id": item_id,
+            "item_name": item_name,
+            "item_type": item_type,
+            "rarity": rarity,
+            "image_url": image_url,
+            "updated_at": now
+        }
+        await _mongo_db.player_lockers.update_one(
+            {"epic_username": clean_user, "item_id": item_id},
+            {"$set": doc, "$setOnInsert": {"added_at": now}},
+            upsert=True
+        )
+        return doc
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            INSERT INTO player_lockers (epic_username, item_id, item_name, item_type, rarity, image_url, added_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(epic_username, item_id) DO UPDATE SET
+                item_name = excluded.item_name,
+                item_type = excluded.item_type,
+                rarity = excluded.rarity,
+                image_url = excluded.image_url
+        """, (clean_user, item_id, item_name, item_type, rarity, image_url))
+        await db.commit()
+        return {
+            "epic_username": clean_user,
+            "item_id": item_id,
+            "item_name": item_name,
+            "item_type": item_type,
+            "rarity": rarity,
+            "image_url": image_url
+        }
+
+
+async def remove_from_locker(epic_username: str, item_id: str) -> bool:
+    """Removes a cosmetic item from a player's locker."""
+    clean_user = epic_username.strip()
+    clean_id = item_id.strip()
+    if _mongo_db is not None:
+        res = await _mongo_db.player_lockers.delete_one({"epic_username": clean_user, "item_id": clean_id})
+        return res.deleted_count > 0
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cur = await db.execute("DELETE FROM player_lockers WHERE epic_username = ? AND item_id = ?", (clean_user, clean_id))
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def get_player_locker(epic_username: str) -> List[Dict[str, Any]]:
+    """Retrieves all cosmetics in a player's locker."""
+    clean_user = epic_username.strip()
+    if _mongo_db is not None:
+        cursor = _mongo_db.player_lockers.find({"epic_username": clean_user}).sort("added_at", -1)
+        items = []
+        async for doc in cursor:
+            items.append({
+                "item_id": doc["item_id"],
+                "item_name": doc["item_name"],
+                "item_type": doc.get("item_type", "cosmetic"),
+                "rarity": doc.get("rarity", "Common"),
+                "image_url": doc.get("image_url", ""),
+                "added_at": str(doc.get("added_at", ""))
+            })
+        return items
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("""
+            SELECT item_id, item_name, item_type, rarity, image_url, added_at
+            FROM player_lockers
+            WHERE epic_username = ? COLLATE NOCASE
+            ORDER BY added_at DESC
+        """, (clean_user,)) as cur:
+            rows = await cur.fetchall()
+            return [
+                {
+                    "item_id": r[0],
+                    "item_name": r[1],
+                    "item_type": r[2],
+                    "rarity": r[3],
+                    "image_url": r[4],
+                    "added_at": str(r[5])
+                }
+                for r in rows
+            ]
+
+
+async def get_all_squad_lockers() -> Dict[str, Any]:
+    """Retrieves all squad lockers and aggregates shared items."""
+    all_lockers: Dict[str, List[Dict[str, Any]]] = {}
+    item_counts: Dict[str, Dict[str, Any]] = {}
+
+    if _mongo_db is not None:
+        cursor = _mongo_db.player_lockers.find({}).sort("added_at", -1)
+        async for doc in cursor:
+            user = doc["epic_username"]
+            if user not in all_lockers:
+                all_lockers[user] = []
+            item_obj = {
+                "item_id": doc["item_id"],
+                "item_name": doc["item_name"],
+                "item_type": doc.get("item_type", "cosmetic"),
+                "rarity": doc.get("rarity", "Common"),
+                "image_url": doc.get("image_url", ""),
+                "added_at": str(doc.get("added_at", ""))
+            }
+            all_lockers[user].append(item_obj)
+            iid = doc["item_id"]
+            if iid not in item_counts:
+                item_counts[iid] = {"item": item_obj, "owners": set()}
+            item_counts[iid]["owners"].add(user)
+    else:
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            async with db.execute("""
+                SELECT epic_username, item_id, item_name, item_type, rarity, image_url, added_at
+                FROM player_lockers
+                ORDER BY added_at DESC
+            """) as cur:
+                rows = await cur.fetchall()
+                for r in rows:
+                    user = r[0]
+                    if user not in all_lockers:
+                        all_lockers[user] = []
+                    item_obj = {
+                        "item_id": r[1],
+                        "item_name": r[2],
+                        "item_type": r[3],
+                        "rarity": r[4],
+                        "image_url": r[5],
+                        "added_at": str(r[6])
+                    }
+                    all_lockers[user].append(item_obj)
+                    iid = r[1]
+                    if iid not in item_counts:
+                        item_counts[iid] = {"item": item_obj, "owners": set()}
+                    item_counts[iid]["owners"].add(user)
+
+    # Calculate squad matching / shared items (owned by 2 or more players)
+    shared_items = []
+    for iid, data in item_counts.items():
+        if len(data["owners"]) >= 2:
+            s_item = dict(data["item"])
+            s_item["owners"] = sorted(list(data["owners"]))
+            s_item["owner_count"] = len(data["owners"])
+            shared_items.append(s_item)
+    shared_items.sort(key=lambda x: x["owner_count"], reverse=True)
+
+    return {
+        "players": all_lockers,
+        "shared_items": shared_items
+    }
+
+
+async def bulk_import_locker(epic_username: str, items: List[Dict[str, Any]]) -> int:
+    """Bulk imports a list of cosmetics for a player."""
+    clean_user = epic_username.strip()
+    count = 0
+    for it in items:
+        await add_to_locker(clean_user, it)
+        count += 1
+    return count
+
+
+async def save_combo(creator_name: str, combo_title: str, combo_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Saves an outfit combo loadout."""
+    combo_id = str(uuid.uuid4())[:8]
+    clean_creator = creator_name.strip()
+    clean_title = combo_title.strip() or "Untitled Combo"
+    now = datetime.utcnow()
+
+    outfit_s = json.dumps(combo_data.get("outfit") or {})
+    backpack_s = json.dumps(combo_data.get("backpack") or {})
+    pickaxe_s = json.dumps(combo_data.get("pickaxe") or {})
+    shoe_s = json.dumps(combo_data.get("shoe") or {})
+    glider_s = json.dumps(combo_data.get("glider") or {})
+    wrap_s = json.dumps(combo_data.get("wrap") or {})
+
+    if _mongo_db is not None:
+        doc = {
+            "combo_id": combo_id,
+            "creator_name": clean_creator,
+            "combo_title": clean_title,
+            "combo_data": combo_data,
+            "created_at": now
+        }
+        await _mongo_db.saved_combos.insert_one(doc)
+        return doc
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            INSERT INTO saved_combos (combo_id, creator_name, combo_title, outfit_data, backpack_data, pickaxe_data, shoe_data, glider_data, wrap_data, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """, (combo_id, clean_creator, clean_title, outfit_s, backpack_s, pickaxe_s, shoe_s, glider_s, wrap_s))
+        await db.commit()
+
+    return {
+        "combo_id": combo_id,
+        "creator_name": clean_creator,
+        "combo_title": clean_title,
+        "combo_data": combo_data,
+        "created_at": str(now)
+    }
+
+
+async def get_saved_combos(limit: int = 30) -> List[Dict[str, Any]]:
+    """Retrieves saved squad combos."""
+    if _mongo_db is not None:
+        cursor = _mongo_db.saved_combos.find({}).sort("created_at", -1).limit(limit)
+        combos = []
+        async for doc in cursor:
+            combos.append({
+                "combo_id": doc["combo_id"],
+                "creator_name": doc["creator_name"],
+                "combo_title": doc["combo_title"],
+                "combo_data": doc.get("combo_data", {}),
+                "created_at": str(doc.get("created_at", ""))
+            })
+        return combos
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("""
+            SELECT combo_id, creator_name, combo_title, outfit_data, backpack_data, pickaxe_data, shoe_data, glider_data, wrap_data, created_at
+            FROM saved_combos
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (limit,)) as cur:
+            rows = await cur.fetchall()
+            combos = []
+            for r in rows:
+                try:
+                    cdata = {
+                        "outfit": json.loads(r[3]) if r[3] else {},
+                        "backpack": json.loads(r[4]) if r[4] else {},
+                        "pickaxe": json.loads(r[5]) if r[5] else {},
+                        "shoe": json.loads(r[6]) if r[6] else {},
+                        "glider": json.loads(r[7]) if r[7] else {},
+                        "wrap": json.loads(r[8]) if r[8] else {}
+                    }
+                except Exception:
+                    cdata = {}
+                combos.append({
+                    "combo_id": r[0],
+                    "creator_name": r[1],
+                    "combo_title": r[2],
+                    "combo_data": cdata,
+                    "created_at": str(r[9])
+                })
+            return combos
+
+
+async def delete_saved_combo(combo_id: str) -> bool:
+    """Deletes a saved combo."""
+    cid = combo_id.strip()
+    if _mongo_db is not None:
+        res = await _mongo_db.saved_combos.delete_one({"combo_id": cid})
+        return res.deleted_count > 0
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cur = await db.execute("DELETE FROM saved_combos WHERE combo_id = ?", (cid,))
         await db.commit()
         return cur.rowcount > 0
 

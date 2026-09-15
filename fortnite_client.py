@@ -158,3 +158,54 @@ class FortniteClient:
             if e.status_code == 404:
                 raise FortniteAPIError(f"Creator code **{code}** is invalid or inactive.", status_code=404)
             raise
+
+    async def get_all_cosmetics(self, bypass_cache: bool = False) -> List[Dict[str, Any]]:
+        """Fetches all Battle Royale cosmetics with 24-hour TTL caching."""
+        res = await self._get("/v2/cosmetics/br", cache_ttl=86400, bypass_cache=bypass_cache)
+        return res if isinstance(res, list) else []
+
+    async def search_cosmetics_catalog(
+        self,
+        query: str = "",
+        cosmetic_type: str = "",
+        limit: int = 60,
+        bypass_cache: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Fast in-memory catalog search across 16,000+ Fortnite cosmetics."""
+        all_items = await self.get_all_cosmetics(bypass_cache=bypass_cache)
+        clean_q = query.strip().lower()
+        clean_type = cosmetic_type.strip().lower()
+
+        if clean_type == "kicks":
+            clean_type = "shoe"
+        elif clean_type == "backbling":
+            clean_type = "backpack"
+        elif clean_type == "skin":
+            clean_type = "outfit"
+
+        results = []
+        for item in all_items:
+            # Type filter
+            itype = ""
+            if isinstance(item.get("type"), dict):
+                itype = item["type"].get("value", "").lower()
+            elif isinstance(item.get("type"), str):
+                itype = item["type"].lower()
+
+            if clean_type and clean_type != itype:
+                continue
+
+            # Query filter
+            if clean_q:
+                name = item.get("name", "").lower()
+                set_text = ""
+                if isinstance(item.get("set"), dict):
+                    set_text = item["set"].get("text", "").lower()
+                if clean_q not in name and clean_q not in set_text:
+                    continue
+
+            results.append(item)
+            if len(results) >= limit:
+                break
+
+        return results
